@@ -205,39 +205,57 @@ try {
             document.querySelector('.modal-title').textContent = `Conectar ${bankName}`;
             
             // Cargar campos del formulario
-            fetch(`<?php echo APP_URL; ?>/api/bank/fields.php?bank_id=${bankId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+            fetch(`<?php echo APP_URL; ?>/api/bank/fields.php?bank_id=${bankId}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        window.location.href = '<?php echo APP_URL; ?>/login';
+                        throw new Error('Sesión expirada');
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    if (!data.success) {
+                    return response.json().then(data => {
                         throw new Error(data.message || 'Error al cargar los campos');
-                    }
-                    const formFields = document.getElementById('formFields');
-                    formFields.innerHTML = '';
-                    
-                    data.fields.forEach(field => {
-                        const div = document.createElement('div');
-                        div.className = 'mb-3';
-                        div.innerHTML = `
-                            <label class="form-label">${field.label}</label>
-                            <input type="${field.type}" 
-                                   class="form-control" 
-                                   name="${field.name}"
-                                   placeholder="${field.placeholder}"
-                                   required>
-                        `;
-                        formFields.appendChild(div);
                     });
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    const formFields = document.getElementById('formFields');
-                    formFields.innerHTML = `<div class="alert alert-danger">Error al cargar los campos: ${error.message}</div>`;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.message || 'Error al cargar los campos');
+                }
+                const formFields = document.getElementById('formFields');
+                formFields.innerHTML = '';
+                
+                data.fields.forEach(field => {
+                    const div = document.createElement('div');
+                    div.className = 'mb-3';
+                    div.innerHTML = `
+                        <label class="form-label">${field.label}</label>
+                        <input type="${field.type}" 
+                               class="form-control" 
+                               name="${field.name}"
+                               placeholder="${field.placeholder}"
+                               required>
+                    `;
+                    formFields.appendChild(div);
                 });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const formFields = document.getElementById('formFields');
+                formFields.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle"></i>
+                        ${error.message}
+                    </div>
+                `;
+            });
         });
 
         function connectBank() {
@@ -251,11 +269,18 @@ try {
             
             fetch('<?php echo APP_URL; ?>/api/bank/connect.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'same-origin'
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    if (response.status === 401) {
+                        window.location.href = '<?php echo APP_URL; ?>/login';
+                        throw new Error('Sesión expirada');
+                    }
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Error al conectar la cuenta');
+                    });
                 }
                 return response.json();
             })
@@ -277,14 +302,22 @@ try {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
                     connection_id: connectionId
-                })
+                }),
+                credentials: 'same-origin'
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    if (response.status === 401) {
+                        window.location.href = '<?php echo APP_URL; ?>/login';
+                        throw new Error('Sesión expirada');
+                    }
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Error al sincronizar');
+                    });
                 }
                 return response.json();
             })
@@ -307,14 +340,22 @@ try {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     body: JSON.stringify({
                         connection_id: connectionId
-                    })
+                    }),
+                    credentials: 'same-origin'
                 })
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        if (response.status === 401) {
+                            window.location.href = '<?php echo APP_URL; ?>/login';
+                            throw new Error('Sesión expirada');
+                        }
+                        return response.json().then(data => {
+                            throw new Error(data.message || 'Error al eliminar la conexión');
+                        });
                     }
                     return response.json();
                 })
