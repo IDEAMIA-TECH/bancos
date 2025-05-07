@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth_functions.php';
+require_once __DIR__ . '/../../includes/belvo.php';
+require_once __DIR__ . '/../../includes/config.php';
 requireLogin();
 
 // Habilitar visualización de errores
@@ -32,6 +34,8 @@ function getBelvoInstitutions() {
         }
 
         error_log('Iniciando solicitud a Belvo API...');
+        error_log('Credenciales Belvo - ID: ' . substr(BELVO_SECRET_ID, 0, 5) . '...');
+        
         $response = belvoApiRequest('/api/institutions/');
         error_log('Respuesta de Belvo API: ' . print_r($response, true));
         
@@ -72,6 +76,9 @@ try {
 // Obtener instituciones disponibles
 $institutions = getBelvoInstitutions();
 error_log('Instituciones obtenidas: ' . print_r($institutions, true));
+
+// Activar modo debug para esta sesión
+$_SESSION['debug'] = true;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -142,6 +149,13 @@ error_log('Instituciones obtenidas: ' . print_r($institutions, true));
                         <li>Función belvoApiRequest existe: <?php echo function_exists('belvoApiRequest') ? 'Sí' : 'No'; ?></li>
                         <li>Credenciales Belvo configuradas: <?php echo (defined('BELVO_SECRET_ID') && defined('BELVO_SECRET_PASSWORD')) ? 'Sí' : 'No'; ?></li>
                         <li>Número de instituciones obtenidas: <?php echo count($institutions); ?></li>
+                        <li>Archivos incluidos:
+                            <ul>
+                                <?php foreach (get_included_files() as $file): ?>
+                                    <li><?php echo $file; ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </li>
                     </ul>
                 </div>
             <?php endif; ?>
