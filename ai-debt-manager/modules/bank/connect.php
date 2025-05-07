@@ -206,8 +206,16 @@ try {
             
             // Cargar campos del formulario
             fetch(`<?php echo APP_URL; ?>/api/bank/fields.php?bank_id=${bankId}`)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.message || 'Error al cargar los campos');
+                    }
                     const formFields = document.getElementById('formFields');
                     formFields.innerHTML = '';
                     
@@ -224,6 +232,11 @@ try {
                         `;
                         formFields.appendChild(div);
                     });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    const formFields = document.getElementById('formFields');
+                    formFields.innerHTML = `<div class="alert alert-danger">Error al cargar los campos: ${error.message}</div>`;
                 });
         });
 
@@ -240,17 +253,22 @@ try {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     window.location.reload();
                 } else {
-                    alert('Error al conectar la cuenta: ' + data.message);
+                    throw new Error(data.message || 'Error al conectar la cuenta');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al conectar la cuenta. Por favor, intente más tarde.');
+                alert('Error al conectar la cuenta: ' + error.message);
             });
         }
 
@@ -264,17 +282,22 @@ try {
                     connection_id: connectionId
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     window.location.reload();
                 } else {
-                    alert('Error al sincronizar: ' + data.message);
+                    throw new Error(data.message || 'Error al sincronizar');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al sincronizar. Por favor, intente más tarde.');
+                alert('Error al sincronizar: ' + error.message);
             });
         }
 
@@ -289,17 +312,22 @@ try {
                         connection_id: connectionId
                     })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         window.location.reload();
                     } else {
-                        alert('Error al eliminar la conexión: ' + data.message);
+                        throw new Error(data.message || 'Error al eliminar la conexión');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error al eliminar la conexión. Por favor, intente más tarde.');
+                    alert('Error al eliminar la conexión: ' + error.message);
                 });
             }
         }
