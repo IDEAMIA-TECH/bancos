@@ -6,16 +6,28 @@ require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/banks.php';
 require_once __DIR__ . '/../../includes/auth_functions.php';
 
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Set JSON response headers
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: ' . APP_URL);
 header('Access-Control-Allow-Methods: GET');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
+header('Access-Control-Allow-Credentials: true');
 
 try {
     // Check if user is logged in
     if (!isLoggedIn()) {
         throw new Exception('Sesión expirada. Por favor, inicie sesión nuevamente.');
+    }
+
+    // Verify CSRF token
+    $csrf_token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (empty($csrf_token) || !isset($_SESSION['csrf_token']) || $csrf_token !== $_SESSION['csrf_token']) {
+        throw new Exception('Token de seguridad inválido');
     }
 
     // Obtener el ID del banco

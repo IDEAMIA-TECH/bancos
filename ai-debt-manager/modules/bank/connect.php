@@ -1,7 +1,17 @@
 <?php
 require_once __DIR__ . '/../../includes/auth_functions.php';
 require_once __DIR__ . '/../../config/banks.php';
-requireLogin();
+
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Verificar autenticación
+if (!isLoggedIn()) {
+    header('Location: ' . APP_URL . '/login');
+    exit;
+}
 
 // Habilitar visualización de errores
 ini_set('display_errors', 1);
@@ -32,6 +42,10 @@ try {
     $existingConnections = [];
     $errors[] = 'Error al obtener las conexiones bancarias: ' . $e->getMessage();
 }
+
+// Add CSRF token for security
+$csrf_token = bin2hex(random_bytes(32));
+$_SESSION['csrf_token'] = $csrf_token;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -173,6 +187,7 @@ try {
                 <div class="modal-body">
                     <form id="connectForm">
                         <input type="hidden" id="bankId" name="bank_id">
+                        <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                         <div id="formFields"></div>
                         <div class="form-check mt-3">
                             <input class="form-check-input" type="checkbox" id="termsCheck" required>
@@ -209,7 +224,8 @@ try {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': '<?php echo $csrf_token; ?>'
                 },
                 credentials: 'same-origin'
             })
@@ -270,7 +286,10 @@ try {
             fetch('<?php echo APP_URL; ?>/api/bank/connect.php', {
                 method: 'POST',
                 body: formData,
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-Token': '<?php echo $csrf_token; ?>'
+                }
             })
             .then(response => {
                 if (!response.ok) {
@@ -302,7 +321,8 @@ try {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': '<?php echo $csrf_token; ?>'
                 },
                 body: JSON.stringify({
                     connection_id: connectionId
@@ -340,7 +360,8 @@ try {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-Token': '<?php echo $csrf_token; ?>'
                     },
                     body: JSON.stringify({
                         connection_id: connectionId
