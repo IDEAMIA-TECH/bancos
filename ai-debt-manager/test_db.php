@@ -27,5 +27,9 @@ try {
     }
     
 } catch (PDOException $e) {
-    echo "Error: " . $e->getMessage() . "\n";
+    echo "Error detallado:\n";
+    echo "Código de error: " . $e->getCode() . "\n";
+    echo "Mensaje: " . $e->getMessage() . "\n";
+    echo "Archivo: " . $e->getFile() . "\n";
+    echo "Línea: " . $e->getLine() . "\n";
 } 

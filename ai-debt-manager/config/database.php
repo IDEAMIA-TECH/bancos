@@ -1,9 +1,10 @@
 <?php
-// Database Configuration
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'ideamiadev_deudas');
-define('DB_USER', 'ideamia_admin');
-define('DB_PASS', 'e$PkKPqDJ7N#m?jN');
+// Database Configuration for cPanel
+// Replace these values with your cPanel database credentials
+define('DB_HOST', 'localhost'); // Usually your MySQL hostname from cPanel
+define('DB_NAME', 'ideamiadev_deudas'); // Your database name from cPanel
+define('DB_USER', 'ideamia_admin'); // Your database username from cPanel
+define('DB_PASS', 'e$PkKPqDJ7N#m?jN'); // Your database password from cPanel
 define('DB_CHARSET', 'utf8mb4');
 
 // Create PDO connection
