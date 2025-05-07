@@ -1,0 +1,112 @@
+.categorize-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.categorize-header h1 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.categorize-header p {
+    color: var(--text-secondary);
+}
+
+.no-transactions {
+    text-align: center;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.transactions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.transaction-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+.transaction-card:hover {
+    transform: translateY(-2px);
+}
+
+.transaction-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.transaction-details {
+    margin-bottom: 1rem;
+}
+
+.transaction-details .description {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+.transaction-details .date {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.transaction-amount {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--danger-color);
+    margin-bottom: 1rem;
+}
+
+.categorization {
+    margin-top: 1rem;
+}
+
+.category-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: white;
+    font-size: 1rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.category-select:hover {
+    border-color: var(--primary-color);
+}
+
+.category-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .transactions-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .transaction-card {
+        padding: 1rem;
+    }
+
+    .transaction-info {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+} 

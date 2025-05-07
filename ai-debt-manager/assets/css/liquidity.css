@@ -1,0 +1,179 @@
+/* Liquidity Header */
+.liquidity-header {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.liquidity-header h1 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.liquidity-header p {
+    color: var(--text-secondary);
+}
+
+/* Liquidity Summary */
+.liquidity-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.summary-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.summary-card h3 {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.summary-card .amount {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.summary-card .amount.positive {
+    color: #4caf50;
+}
+
+.summary-card .amount.negative {
+    color: #f44336;
+}
+
+.summary-card .subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0.5rem 0 0 0;
+}
+
+.summary-card .risk-level {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.summary-card .risk-level.high {
+    color: #f44336;
+}
+
+.summary-card .risk-level.medium {
+    color: #ff9800;
+}
+
+.summary-card .risk-level.low {
+    color: #4caf50;
+}
+
+/* Liquidity Grid */
+.liquidity-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+.liquidity-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.liquidity-card.full-width {
+    grid-column: 1 / -1;
+}
+
+.liquidity-card h3 {
+    color: var(--text-primary);
+    margin: 0 0 1rem 0;
+    font-size: 1.2rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+}
+
+/* Alerts List */
+.alerts-list {
+    margin-top: 1rem;
+}
+
+.alert-item {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.alert-item:last-child {
+    border-bottom: none;
+}
+
+.alert-date {
+    color: var(--text-primary);
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.alert-message {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* Recommendations List */
+.recommendations-list {
+    margin-top: 1rem;
+}
+
+.recommendation-item {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.recommendation-item:last-child {
+    border-bottom: none;
+}
+
+.recommendation-item h4 {
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.recommendation-item p {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .liquidity-summary {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .liquidity-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .liquidity-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .liquidity-card {
+        padding: 1rem;
+    }
+
+    .chart-container {
+        height: 250px;
+    }
+} 
