@@ -2,23 +2,32 @@
 // Prevent any output before headers
 ob_start();
 
-require_once __DIR__ . '/../../config/config.php';
-require_once __DIR__ . '/../../config/banks.php';
-require_once __DIR__ . '/../../includes/auth_functions.php';
+// Disable error display
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 
-// Start session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Set JSON response headers
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: ' . APP_URL);
-header('Access-Control-Allow-Methods: POST');
-header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
-header('Access-Control-Allow-Credentials: true');
+// Set error handler
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+});
 
 try {
+    require_once __DIR__ . '/../../config/config.php';
+    require_once __DIR__ . '/../../config/banks.php';
+    require_once __DIR__ . '/../../includes/auth_functions.php';
+
+    // Start session if not already started
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+
+    // Set JSON response headers
+    header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: ' . APP_URL);
+    header('Access-Control-Allow-Methods: POST');
+    header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
+    header('Access-Control-Allow-Credentials: true');
+
     // Check if user is logged in
     if (!isLoggedIn()) {
         throw new Exception('Sesión expirada. Por favor, inicie sesión nuevamente.');
@@ -57,7 +66,15 @@ try {
         $credentials[$field['name']] = $_POST[$field['name']] ?? '';
     }
 
+    // Verify database connection
+    if (!isset($pdo) || !($pdo instanceof PDO)) {
+        throw new Exception('Error de conexión a la base de datos');
+    }
+
     // Encrypt credentials
+    if (!function_exists('encryptBankCredentials')) {
+        throw new Exception('Función de encriptación no disponible');
+    }
     $encrypted_credentials = encryptBankCredentials($credentials);
 
     // Store bank connection
@@ -71,11 +88,19 @@ try {
         ) VALUES (?, ?, ?, 'active', NOW())
     ");
 
-    $stmt->execute([
+    if (!$stmt) {
+        throw new Exception('Error al preparar la consulta SQL');
+    }
+
+    $result = $stmt->execute([
         $_SESSION['user_id'],
         $bank_id,
         $encrypted_credentials
     ]);
+
+    if (!$result) {
+        throw new Exception('Error al guardar la conexión bancaria');
+    }
 
     $connection_id = $pdo->lastInsertId();
 
@@ -89,12 +114,33 @@ try {
         'connection_id' => $connection_id
     ]);
 
+} catch (ErrorException $e) {
+    error_log('Error PHP en connect.php: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Error interno del servidor'
+    ]);
+} catch (PDOException $e) {
+    error_log('Error de base de datos en connect.php: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Error al conectar con la base de datos'
+    ]);
 } catch (Exception $e) {
     error_log('Error en connect.php: ' . $e->getMessage());
     http_response_code($e->getMessage() === 'Sesión expirada. Por favor, inicie sesión nuevamente.' ? 401 : 400);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()
+    ]);
+} catch (Throwable $e) {
+    error_log('Error inesperado en connect.php: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Error inesperado del servidor'
     ]);
 }
 
