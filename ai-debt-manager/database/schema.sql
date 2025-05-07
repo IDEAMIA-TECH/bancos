@@ -16,17 +16,16 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS bank_connections (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    bank_id VARCHAR(50) NOT NULL,
-    bank_name VARCHAR(100) NOT NULL,
-    credentials TEXT NOT NULL,
+    institution_id VARCHAR(50) NOT NULL,
+    belvo_link_id VARCHAR(100) NOT NULL,
+    bank_credentials TEXT NULL,
+    status ENUM('active', 'inactive', 'revoked') DEFAULT 'active',
     last_sync DATETIME NULL,
-    last_error TEXT NULL,
-    last_error_at DATETIME NULL,
-    created_at DATETIME NOT NULL,
-    deleted_at DATETIME NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    INDEX idx_user_bank (user_id, bank_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_institution (user_id, institution_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Accounts table
 CREATE TABLE IF NOT EXISTS accounts (
@@ -41,7 +40,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     deleted_at DATETIME NULL,
     FOREIGN KEY (bank_connection_id) REFERENCES bank_connections(id),
     UNIQUE KEY uk_connection_account (bank_connection_id, account_number)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Transactions table
 CREATE TABLE IF NOT EXISTS transactions (

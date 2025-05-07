@@ -11,6 +11,13 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
     throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
 });
 
+// Set JSON response headers
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: ' . APP_URL);
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
+header('Access-Control-Allow-Credentials: true');
+
 try {
     require_once __DIR__ . '/../../config/config.php';
     require_once __DIR__ . '/../../config/banks.php';
@@ -20,13 +27,6 @@ try {
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
-
-    // Set JSON response headers
-    header('Content-Type: application/json');
-    header('Access-Control-Allow-Origin: ' . APP_URL);
-    header('Access-Control-Allow-Methods: POST');
-    header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
-    header('Access-Control-Allow-Credentials: true');
 
     // Check if user is logged in
     if (!isLoggedIn()) {
@@ -77,15 +77,18 @@ try {
     }
     $encrypted_credentials = encryptBankCredentials($credentials);
 
+    // Generate a unique belvo_link_id
+    $belvo_link_id = uniqid('link_', true);
+
     // Store bank connection
     $stmt = $pdo->prepare("
         INSERT INTO bank_connections (
             user_id, 
             institution_id, 
-            credentials, 
-            status, 
-            created_at
-        ) VALUES (?, ?, ?, 'active', NOW())
+            belvo_link_id,
+            bank_credentials, 
+            status
+        ) VALUES (?, ?, ?, ?, 'active')
     ");
 
     if (!$stmt) {
@@ -95,6 +98,7 @@ try {
     $result = $stmt->execute([
         $_SESSION['user_id'],
         $bank_id,
+        $belvo_link_id,
         $encrypted_credentials
     ]);
 
@@ -111,7 +115,8 @@ try {
     echo json_encode([
         'success' => true,
         'message' => 'Conexión bancaria establecida correctamente',
-        'connection_id' => $connection_id
+        'connection_id' => $connection_id,
+        'belvo_link_id' => $belvo_link_id
     ]);
 
 } catch (ErrorException $e) {
