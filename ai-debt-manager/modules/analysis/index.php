@@ -14,7 +14,12 @@ $stmt = $pdo->prepare("
         c.name as category_name,
         c.type as category_type
     FROM debts d
-    LEFT JOIN transactions t ON d.user_id = t.user_id
+    LEFT JOIN transactions t ON t.account_id IN (
+        SELECT a.id 
+        FROM accounts a 
+        JOIN bank_connections bc ON a.bank_connection_id = bc.id 
+        WHERE bc.user_id = d.user_id
+    )
     LEFT JOIN categories c ON t.category_id = c.id
     WHERE d.user_id = ? AND d.status = 'active'
     ORDER BY t.transaction_date DESC
