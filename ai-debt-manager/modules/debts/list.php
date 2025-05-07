@@ -2,42 +2,33 @@
 require_once __DIR__ . '/../../includes/auth_functions.php';
 requireLogin();
 
-// Get user's debts with account information
+// Handle debt deletion
+if (isset($_POST['delete_debt']) && isset($_POST['debt_id'])) {
+    $stmt = $pdo->prepare("UPDATE debts SET status = 'inactive' WHERE id = ? AND user_id = ?");
+    $stmt->execute([$_POST['debt_id'], $_SESSION['user_id']]);
+    header('Location: ' . APP_URL . '/debts/list');
+    exit;
+}
+
+// Get all active debts
 $stmt = $pdo->prepare("
-    SELECT d.*, a.account_number, a.account_type, bc.institution_id,
-           (SELECT SUM(amount) FROM transactions 
-            WHERE account_id = a.id 
-            AND transaction_date >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
-            AND amount < 0) as monthly_payments
+    SELECT 
+        d.*,
+        (SELECT SUM(amount) FROM payments WHERE debt_id = d.id) as total_paid,
+        (SELECT COUNT(*) FROM payments WHERE debt_id = d.id) as payment_count
     FROM debts d
-    JOIN accounts a ON d.account_id = a.id
-    JOIN bank_connections bc ON a.bank_connection_id = bc.id
     WHERE d.user_id = ? AND d.status = 'active'
-    ORDER BY d.current_amount DESC
+    ORDER BY d.next_payment_date ASC
 ");
 $stmt->execute([$_SESSION['user_id']]);
 $debts = $stmt->fetchAll();
 
-// Calculate total debt and monthly payments
-$total_debt = 0;
-$total_monthly_payments = 0;
-foreach ($debts as $debt) {
-    $total_debt += $debt['current_amount'];
-    $total_monthly_payments += abs($debt['monthly_payments'] ?? 0);
+// Calculate remaining amounts and progress
+foreach ($debts as &$debt) {
+    $debt['remaining_amount'] = $debt['amount'] - ($debt['total_paid'] ?? 0);
+    $debt['progress'] = ($debt['total_paid'] ?? 0) / $debt['amount'] * 100;
 }
-
-// Get user's monthly income
-$stmt = $pdo->prepare("
-    SELECT SUM(amount) as total_income
-    FROM transactions t
-    JOIN accounts a ON t.account_id = a.id
-    JOIN bank_connections bc ON a.bank_connection_id = bc.id
-    WHERE bc.user_id = ?
-    AND t.transaction_date >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
-    AND t.amount > 0
-");
-$stmt->execute([$_SESSION['user_id']]);
-$income = $stmt->fetch()['total_income'] ?? 0;
+unset($debt);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -45,106 +36,111 @@ $income = $stmt->fetch()['total_income'] ?? 0;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mis Deudas - <?php echo APP_NAME; ?></title>
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/dashboard.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/debts.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100 bg-light">
     <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-    <div class="container">
-        <div class="debt-summary">
-            <div class="summary-card total-debt">
-                <h3>Deuda Total</h3>
-                <p class="amount">$<?php echo number_format($total_debt, 2); ?></p>
+    <main class="flex-grow-1">
+        <div class="container py-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Mis Deudas</h1>
+                <a href="<?php echo APP_URL; ?>/debts/add" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Agregar Deuda
+                </a>
             </div>
-            <div class="summary-card monthly-payments">
-                <h3>Pagos Mensuales</h3>
-                <p class="amount">$<?php echo number_format($total_monthly_payments, 2); ?></p>
-            </div>
-            <div class="summary-card monthly-income">
-                <h3>Ingreso Mensual</h3>
-                <p class="amount">$<?php echo number_format($income, 2); ?></p>
-            </div>
-        </div>
 
-        <div class="debt-analysis">
-            <h2>Análisis de Deudas</h2>
-            <div class="analysis-grid">
-                <div class="analysis-card">
-                    <h4>Ratio de Deuda</h4>
-                    <p class="ratio">
-                        <?php 
-                        $debt_ratio = $income > 0 ? ($total_monthly_payments / $income) * 100 : 0;
-                        echo number_format($debt_ratio, 1) . '%';
-                        ?>
-                    </p>
-                    <p class="status <?php echo $debt_ratio > 50 ? 'warning' : 'good'; ?>">
-                        <?php echo $debt_ratio > 50 ? 'Alto' : 'Saludable'; ?>
-                    </p>
-                </div>
-                <div class="analysis-card">
-                    <h4>Deuda Promedio</h4>
-                    <p class="amount">
-                        $<?php echo number_format(count($debts) > 0 ? $total_debt / count($debts) : 0, 2); ?>
-                    </p>
-                    <p class="subtitle">por cuenta</p>
-                </div>
-                <div class="analysis-card">
-                    <h4>Tasa Promedio</h4>
-                    <p class="rate">
-                        <?php 
-                        $avg_rate = 0;
-                        foreach ($debts as $debt) {
-                            $avg_rate += $debt['interest_rate'];
-                        }
-                        echo number_format(count($debts) > 0 ? $avg_rate / count($debts) : 0, 1) . '%';
-                        ?>
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="debts-list">
-            <h2>Mis Deudas</h2>
             <?php if (empty($debts)): ?>
-                <p class="no-debts">No tienes deudas activas registradas.</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No tienes deudas activas. ¡Agrega una nueva deuda para comenzar!
+                </div>
             <?php else: ?>
-                <?php foreach ($debts as $debt): ?>
-                    <div class="debt-card">
-                        <div class="debt-info">
-                            <h3><?php echo htmlspecialchars($debt['institution_id']); ?></h3>
-                            <p class="account-number">Cuenta: <?php echo htmlspecialchars($debt['account_number']); ?></p>
-                            <p class="debt-amount">$<?php echo number_format($debt['current_amount'], 2); ?></p>
-                        </div>
-                        <div class="debt-details">
-                            <div class="detail">
-                                <span class="label">Tasa de Interés:</span>
-                                <span class="value"><?php echo $debt['interest_rate']; ?>%</span>
+                <div class="row">
+                    <?php foreach ($debts as $debt): ?>
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-3">
+                                        <h5 class="card-title mb-0"><?php echo htmlspecialchars($debt['name']); ?></h5>
+                                        <div class="dropdown">
+                                            <button class="btn btn-link text-dark p-0" data-bs-toggle="dropdown">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li>
+                                                    <a class="dropdown-item" href="<?php echo APP_URL; ?>/debts/edit/<?php echo $debt['id']; ?>">
+                                                        <i class="fas fa-edit me-2"></i>Editar
+                                                    </a>
+                                                </li>
+                                                <li>
+                                                    <form method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta deuda?');">
+                                                        <input type="hidden" name="debt_id" value="<?php echo $debt['id']; ?>">
+                                                        <button type="submit" name="delete_debt" class="dropdown-item text-danger">
+                                                            <i class="fas fa-trash me-2"></i>Eliminar
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="text-muted">Progreso</span>
+                                            <span class="text-muted"><?php echo number_format($debt['progress'], 1); ?>%</span>
+                                        </div>
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: <?php echo $debt['progress']; ?>%"
+                                                 aria-valuenow="<?php echo $debt['progress']; ?>" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Monto Original</small>
+                                            <strong>$<?php echo number_format($debt['amount'], 2); ?></strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Saldo Restante</small>
+                                            <strong>$<?php echo number_format($debt['remaining_amount'], 2); ?></strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Tasa de Interés</small>
+                                            <strong><?php echo number_format($debt['interest_rate'], 1); ?>%</strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted d-block">Pago Mínimo</small>
+                                            <strong>$<?php echo number_format($debt['minimum_payment'], 2); ?></strong>
+                                        </div>
+                                    </div>
+
+                                    <hr>
+
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <small class="text-muted d-block">Próximo Pago</small>
+                                            <strong><?php echo date('d/m/Y', strtotime($debt['next_payment_date'])); ?></strong>
+                                        </div>
+                                        <a href="<?php echo APP_URL; ?>/debts/payments/<?php echo $debt['id']; ?>" 
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-history me-1"></i>
+                                            Ver Pagos
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="detail">
-                                <span class="label">Pago Mensual:</span>
-                                <span class="value">$<?php echo number_format(abs($debt['monthly_payments'] ?? 0), 2); ?></span>
-                            </div>
-                            <div class="detail">
-                                <span class="label">Fecha de Vencimiento:</span>
-                                <span class="value"><?php echo date('d/m/Y', strtotime($debt['due_date'])); ?></span>
-                            </div>
                         </div>
-                        <div class="debt-actions">
-                            <a href="plan.php?debt_id=<?php echo $debt['id']; ?>" class="btn-primary">Ver Plan</a>
-                            <button onclick="updateDebt(<?php echo $debt['id']; ?>)" class="btn-secondary">Actualizar</button>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </div>
             <?php endif; ?>
         </div>
-    </div>
+    </main>
 
-    <script>
-        function updateDebt(debtId) {
-            // Implementar actualización de deuda
-            alert('Función en desarrollo');
-        }
-    </script>
+    <?php include __DIR__ . '/../../includes/footer.php'; ?>
 </body>
 </html> 

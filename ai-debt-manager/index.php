@@ -34,6 +34,24 @@ switch ($request) {
     case '/dashboard':
         require __DIR__ . '/modules/dashboard/index.php';
         break;
+    case '/analysis':
+        require __DIR__ . '/modules/analysis/index.php';
+        break;
+    case '/liquidity':
+        require __DIR__ . '/modules/liquidity/index.php';
+        break;
+    case '/debts/list':
+        require __DIR__ . '/modules/debts/list.php';
+        break;
+    case '/debts/consolidate':
+        require __DIR__ . '/modules/debts/consolidate.php';
+        break;
+    case '/debts/strategy':
+        require __DIR__ . '/modules/debts/strategy.php';
+        break;
+    case '/transactions/categorize':
+        require __DIR__ . '/modules/transactions/categorize.php';
+        break;
     default:
         http_response_code(404);
         require __DIR__ . '/includes/404.php';

@@ -2,52 +2,66 @@
 require_once __DIR__ . '/../../includes/auth_functions.php';
 requireLogin();
 
-// Get user's active debts
+// Get all active debts
 $stmt = $pdo->prepare("
-    SELECT d.*, a.account_number, bc.institution_id,
-           (SELECT SUM(amount) FROM transactions t 
-            WHERE t.account_id = d.account_id 
-            AND t.transaction_date >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
-            AND t.amount < 0) as monthly_payment
+    SELECT 
+        d.*,
+        (SELECT SUM(amount) FROM payments WHERE debt_id = d.id) as total_paid
     FROM debts d
-    JOIN accounts a ON d.account_id = a.id
-    JOIN bank_connections bc ON a.bank_connection_id = bc.id
     WHERE d.user_id = ? AND d.status = 'active'
-    ORDER BY d.current_amount DESC
+    ORDER BY d.interest_rate DESC
 ");
 $stmt->execute([$_SESSION['user_id']]);
 $debts = $stmt->fetchAll();
 
-// Get user's monthly income
-$stmt = $pdo->prepare("
-    SELECT SUM(amount) as monthly_income
-    FROM transactions t
-    JOIN accounts a ON t.account_id = a.id
-    JOIN bank_connections bc ON a.bank_connection_id = bc.id
-    WHERE bc.user_id = ? 
-    AND t.transaction_date >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)
-    AND t.amount > 0
-");
-$stmt->execute([$_SESSION['user_id']]);
-$income = $stmt->fetch();
-
-// Calculate total debt and monthly payments
+// Calculate remaining amounts and monthly payments
 $total_debt = 0;
-$total_monthly_payments = 0;
-foreach ($debts as $debt) {
-    $total_debt += $debt['current_amount'];
-    $total_monthly_payments += abs($debt['monthly_payment'] ?? 0);
+$total_monthly_payment = 0;
+foreach ($debts as &$debt) {
+    $debt['remaining_amount'] = $debt['amount'] - ($debt['total_paid'] ?? 0);
+    $total_debt += $debt['remaining_amount'];
+    $total_monthly_payment += $debt['minimum_payment'];
 }
+unset($debt);
 
-// Calculate 50/30/20 allocation
-$needs = $income['monthly_income'] * 0.5;
-$wants = $income['monthly_income'] * 0.3;
-$savings_debt = $income['monthly_income'] * 0.2;
+// Calculate debt payoff strategies
+$strategies = [
+    'avalanche' => [
+        'name' => 'Método Avalancha',
+        'description' => 'Paga primero las deudas con las tasas de interés más altas',
+        'icon' => 'fa-mountain',
+        'color' => 'primary'
+    ],
+    'snowball' => [
+        'name' => 'Método Bola de Nieve',
+        'description' => 'Paga primero las deudas más pequeñas para ganar impulso',
+        'icon' => 'fa-snowflake',
+        'color' => 'info'
+    ],
+    'hybrid' => [
+        'name' => 'Método Híbrido',
+        'description' => 'Combina ambos métodos para optimizar el pago',
+        'icon' => 'fa-arrows-split-up-and-left',
+        'color' => 'success'
+    ]
+];
 
-// Sort debts for snowball method
+// Sort debts for each strategy
+$avalanche_debts = $debts;
+usort($avalanche_debts, function($a, $b) {
+    return $b['interest_rate'] <=> $a['interest_rate'];
+});
+
 $snowball_debts = $debts;
 usort($snowball_debts, function($a, $b) {
-    return $a['current_amount'] - $b['current_amount'];
+    return $a['remaining_amount'] <=> $b['remaining_amount'];
+});
+
+$hybrid_debts = $debts;
+usort($hybrid_debts, function($a, $b) {
+    $score_a = ($a['interest_rate'] * 0.7) + (1 / $a['remaining_amount'] * 0.3);
+    $score_b = ($b['interest_rate'] * 0.7) + (1 / $b['remaining_amount'] * 0.3);
+    return $score_b <=> $score_a;
 });
 ?>
 <!DOCTYPE html>
@@ -55,110 +69,158 @@ usort($snowball_debts, function($a, $b) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estrategia de Pago - <?php echo APP_NAME; ?></title>
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/dashboard.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/debts.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Estrategia de Deudas - <?php echo APP_NAME; ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100 bg-light">
     <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-    <div class="container">
-        <div class="strategy-header">
-            <h1>Estrategia de Pago</h1>
-            <p>Selecciona el método que mejor se adapte a tus necesidades</p>
-        </div>
+    <main class="flex-grow-1">
+        <div class="container py-4">
+            <h1 class="mb-4">Estrategia de Deudas</h1>
 
-        <div class="strategy-grid">
-            <div class="strategy-card">
-                <h3>Método 50/30/20</h3>
-                <div class="strategy-description">
-                    <p>Distribuye tus ingresos en:</p>
-                    <ul>
-                        <li>50% para necesidades básicas</li>
-                        <li>30% para gastos personales</li>
-                        <li>20% para ahorro y pago de deudas</li>
-                    </ul>
-                </div>
-                <div class="allocation-chart">
-                    <canvas id="allocationChart"></canvas>
-                </div>
-                <div class="allocation-details">
-                    <div class="detail-item">
-                        <span class="label">Ingresos Mensuales</span>
-                        <span class="value">$<?php echo number_format($income['monthly_income'], 2); ?></span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Necesidades (50%)</span>
-                        <span class="value">$<?php echo number_format($needs, 2); ?></span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Deseos (30%)</span>
-                        <span class="value">$<?php echo number_format($wants, 2); ?></span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="label">Ahorro/Deuda (20%)</span>
-                        <span class="value">$<?php echo number_format($savings_debt, 2); ?></span>
+            <!-- Resumen -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Deuda Total</h5>
+                            <h2 class="text-danger">$<?php echo number_format($total_debt, 2); ?></h2>
+                            <p class="text-muted">Deudas activas: <?php echo count($debts); ?></p>
+                        </div>
                     </div>
                 </div>
-                <div class="strategy-actions">
-                    <a href="plan.php?method=50_30_20" class="btn-primary">Aplicar Método</a>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Pago Mensual Total</h5>
+                            <h2 class="text-warning">$<?php echo number_format($total_monthly_payment, 2); ?></h2>
+                            <p class="text-muted">Pagos mínimos</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Tiempo Estimado</h5>
+                            <h2 class="text-success"><?php echo ceil($total_debt / ($total_monthly_payment * 0.8)); ?> meses</h2>
+                            <p class="text-muted">Con pagos adicionales</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="strategy-card">
-                <h3>Método Snowball</h3>
-                <div class="strategy-description">
-                    <p>Paga primero las deudas más pequeñas:</p>
-                    <ul>
-                        <li>Enfócate en la deuda más pequeña</li>
-                        <li>Paga el mínimo en las demás</li>
-                        <li>Usa el dinero extra para la siguiente deuda</li>
-                    </ul>
-                </div>
-                <div class="snowball-list">
-                    <?php foreach ($snowball_debts as $index => $debt): ?>
-                        <div class="snowball-item">
-                            <div class="snowball-number"><?php echo $index + 1; ?></div>
-                            <div class="snowball-details">
-                                <h4><?php echo htmlspecialchars($debt['institution_id']); ?></h4>
-                                <p class="amount">$<?php echo number_format($debt['current_amount'], 2); ?></p>
+            <!-- Estrategias -->
+            <div class="row mb-4">
+                <?php foreach ($strategies as $key => $strategy): ?>
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <i class="fas <?php echo $strategy['icon']; ?> fa-2x text-<?php echo $strategy['color']; ?> me-3"></i>
+                                    <h5 class="card-title mb-0"><?php echo $strategy['name']; ?></h5>
+                                </div>
+                                <p class="card-text"><?php echo $strategy['description']; ?></p>
+                                <div class="mt-3">
+                                    <h6>Orden de Pago Recomendado:</h6>
+                                    <ol class="list-group list-group-numbered">
+                                        <?php 
+                                        $debts_to_show = ${$key . '_debts'};
+                                        foreach (array_slice($debts_to_show, 0, 3) as $debt): 
+                                        ?>
+                                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                <?php echo htmlspecialchars($debt['name']); ?>
+                                                <span class="badge bg-<?php echo $strategy['color']; ?> rounded-pill">
+                                                    $<?php echo number_format($debt['remaining_amount'], 2); ?>
+                                                </span>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ol>
+                                </div>
                             </div>
                         </div>
-                    <?php endforeach; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+
+            <!-- Recomendaciones -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Recomendaciones de Pago</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Estrategias de Pago</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Realiza pagos adicionales cuando sea posible
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Prioriza las deudas según tu estrategia elegida
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Consejos Adicionales</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Establece un presupuesto mensual para pagos
+                                </li>
+                                <li class="mb-2">
+                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                    Automatiza tus pagos para evitar retrasos
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-                <div class="strategy-actions">
-                    <a href="plan.php?method=snowball" class="btn-primary">Aplicar Método</a>
+            </div>
+
+            <!-- Plan de Acción -->
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Plan de Acción</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Deuda</th>
+                                    <th>Saldo</th>
+                                    <th>Pago Mínimo</th>
+                                    <th>Pago Recomendado</th>
+                                    <th>Prioridad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($avalanche_debts as $index => $debt): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($debt['name']); ?></td>
+                                        <td>$<?php echo number_format($debt['remaining_amount'], 2); ?></td>
+                                        <td>$<?php echo number_format($debt['minimum_payment'], 2); ?></td>
+                                        <td>
+                                            <?php
+                                            $extra_payment = $index === 0 ? $total_monthly_payment * 0.2 : 0;
+                                            echo '$' . number_format($debt['minimum_payment'] + $extra_payment, 2);
+                                            ?>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-<?php echo $index === 0 ? 'danger' : 'secondary'; ?>">
+                                                <?php echo $index + 1; ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <script>
-        // Allocation Chart
-        const allocationCtx = document.getElementById('allocationChart').getContext('2d');
-        new Chart(allocationCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Necesidades (50%)', 'Deseos (30%)', 'Ahorro/Deuda (20%)'],
-                datasets: [{
-                    data: [50, 30, 20],
-                    backgroundColor: [
-                        '#2196f3',
-                        '#4caf50',
-                        '#ff9800'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-    </script>
+    <?php include __DIR__ . '/../../includes/footer.php'; ?>
 </body>
 </html> 
