@@ -3,7 +3,7 @@
 // Replace these values with your cPanel database credentials
 define('DB_HOST', 'localhost'); // Usually your MySQL hostname from cPanel
 define('DB_NAME', 'ideamiadev_deudas'); // Your database name from cPanel
-define('DB_USER', 'ideamia_admin'); // Your database username from cPanel
+define('DB_USER', 'ideamiadev_deudas'); // Your database username from cPanel
 define('DB_PASS', 'e$PkKPqDJ7N#m?jN'); // Your database password from cPanel
 define('DB_CHARSET', 'utf8mb4');
 
