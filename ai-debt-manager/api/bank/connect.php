@@ -67,7 +67,7 @@ try {
     }
 
     // Verify database connection
-    if (!isset($pdo) || !($pdo instanceof PDO)) {
+    if (!checkDatabaseConnection()) {
         throw new Exception('Error de conexión a la base de datos');
     }
 
