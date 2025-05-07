@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/auth_functions.php';
-require_once __DIR__ . '/../../includes/belvo.php';
+require_once __DIR__ . '/../../config/belvo.php';
 require_once __DIR__ . '/../../includes/config.php';
 requireLogin();
 
@@ -29,12 +29,12 @@ function getBelvoInstitutions() {
         }
 
         // Verificar credenciales de Belvo
-        if (!defined('BELVO_SECRET_ID') || !defined('BELVO_SECRET_PASSWORD')) {
-            throw new Exception('Las credenciales de Belvo no están configuradas. Verifique el archivo config.php');
+        if (!defined('BELVO_API_KEY') || !defined('BELVO_API_SECRET')) {
+            throw new Exception('Las credenciales de Belvo no están configuradas. Verifique el archivo config/belvo.php');
         }
 
         error_log('Iniciando solicitud a Belvo API...');
-        error_log('Credenciales Belvo - ID: ' . substr(BELVO_SECRET_ID, 0, 5) . '...');
+        error_log('Credenciales Belvo - Key: ' . substr(BELVO_API_KEY, 0, 5) . '...');
         
         $response = belvoApiRequest('/api/institutions/');
         error_log('Respuesta de Belvo API: ' . print_r($response, true));
@@ -147,7 +147,7 @@ $_SESSION['debug'] = true;
                     <ul>
                         <li>Último error PHP: <?php echo error_get_last()['message'] ?? 'Ninguno'; ?></li>
                         <li>Función belvoApiRequest existe: <?php echo function_exists('belvoApiRequest') ? 'Sí' : 'No'; ?></li>
-                        <li>Credenciales Belvo configuradas: <?php echo (defined('BELVO_SECRET_ID') && defined('BELVO_SECRET_PASSWORD')) ? 'Sí' : 'No'; ?></li>
+                        <li>Credenciales Belvo configuradas: <?php echo (defined('BELVO_API_KEY') && defined('BELVO_API_SECRET')) ? 'Sí' : 'No'; ?></li>
                         <li>Número de instituciones obtenidas: <?php echo count($institutions); ?></li>
                         <li>Archivos incluidos:
                             <ul>
