@@ -4,17 +4,6 @@ define('APP_NAME', 'AI Debt Manager');
 define('APP_URL', 'https://ideamia-dev.com/deudas');
 define('APP_VERSION', '1.0.0');
 
-// Database configuration
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'ideamiad_deudas');
-define('DB_USER', 'ideamiad_deudas');
-define('DB_PASS', 'your_database_password');
-
-// Belvo API configuration
-define('BELVO_API_URL', 'https://sandbox.belvo.com/api/');
-define('BELVO_SECRET_ID', 'your_belvo_secret_id');
-define('BELVO_SECRET_PASSWORD', 'your_belvo_secret_password');
-
 // Session configuration
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);
@@ -62,8 +51,4 @@ define('ENABLE_DEBT_CONSOLIDATION', true);
 define('ENABLE_PAYMENT_SCHEDULING', true);
 
 // Debug mode
-define('DEBUG_MODE', true);
-
-// Load Required Files
-require_once 'database.php';
-require_once 'belvo.php'; 
+define('DEBUG_MODE', true); 

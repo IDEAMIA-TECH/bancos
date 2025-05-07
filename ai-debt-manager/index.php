@@ -1,8 +1,9 @@
 <?php
 // Load configuration first
-require_once 'config/config.php';
-require_once 'config/database.php';
-require_once 'includes/auth_functions.php';
+require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/config/belvo.php';
+require_once __DIR__ . '/includes/auth_functions.php';
 
 // Start session after configuration
 session_start();
