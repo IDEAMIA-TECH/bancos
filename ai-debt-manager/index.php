@@ -55,6 +55,9 @@ switch ($request) {
     case '/transactions/categorize':
         require __DIR__ . '/modules/transactions/categorize.php';
         break;
+    case '/bank/connect':
+        require __DIR__ . '/modules/bank/connect.php';
+        break;
     default:
         http_response_code(404);
         require __DIR__ . '/includes/404.php';
