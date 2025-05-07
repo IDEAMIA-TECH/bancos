@@ -1,24 +1,68 @@
 <?php
-// General Configuration
+// Application configuration
 define('APP_NAME', 'AI Debt Manager');
+define('APP_URL', 'https://ideamia-dev.com/deudas');
 define('APP_VERSION', '1.0.0');
-define('APP_URL', 'https://ideamia-dev.com/deudas'); // URL de producción
-define('APP_ROOT', dirname(__DIR__));
 
-// Session Configuration
-if (session_status() === PHP_SESSION_NONE) {
-    // Solo configurar la sesión si aún no está activa
-    ini_set('session.cookie_httponly', 1);
-    ini_set('session.use_only_cookies', 1);
-    ini_set('session.cookie_secure', 1); // Habilitado para HTTPS
-}
+// Database configuration
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'ideamiad_deudas');
+define('DB_USER', 'ideamiad_deudas');
+define('DB_PASS', 'your_database_password');
 
-// Error Reporting
+// Belvo API configuration
+define('BELVO_API_URL', 'https://sandbox.belvo.com/api/');
+define('BELVO_SECRET_ID', 'your_belvo_secret_id');
+define('BELVO_SECRET_PASSWORD', 'your_belvo_secret_password');
+
+// Session configuration
+ini_set('session.cookie_httponly', 1);
+ini_set('session.use_only_cookies', 1);
+ini_set('session.cookie_secure', 1);
+
+// Error reporting
 error_reporting(E_ALL);
-ini_set('display_errors', 0); // Deshabilitado en producción
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/error.log');
 
-// Time Zone
+// Time zone
 date_default_timezone_set('America/Mexico_City');
+
+// Security
+define('HASH_COST', 12); // For password hashing
+define('TOKEN_EXPIRY', 3600); // 1 hour in seconds
+
+// File upload configuration
+define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
+define('ALLOWED_FILE_TYPES', ['jpg', 'jpeg', 'png', 'pdf']);
+define('UPLOAD_DIR', __DIR__ . '/../uploads/');
+
+// Cache configuration
+define('CACHE_ENABLED', true);
+define('CACHE_DIR', __DIR__ . '/../cache/');
+define('CACHE_EXPIRY', 3600); // 1 hour in seconds
+
+// API rate limiting
+define('RATE_LIMIT', 100); // requests per hour
+define('RATE_LIMIT_WINDOW', 3600); // 1 hour in seconds
+
+// Notification settings
+define('EMAIL_FROM', 'noreply@ideamia-dev.com');
+define('EMAIL_FROM_NAME', 'AI Debt Manager');
+define('SMTP_HOST', 'smtp.ideamia-dev.com');
+define('SMTP_PORT', 587);
+define('SMTP_USER', 'your_smtp_username');
+define('SMTP_PASS', 'your_smtp_password');
+
+// Feature flags
+define('ENABLE_AI_FEATURES', true);
+define('ENABLE_BANK_CONNECTION', true);
+define('ENABLE_DEBT_CONSOLIDATION', true);
+define('ENABLE_PAYMENT_SCHEDULING', true);
+
+// Debug mode
+define('DEBUG_MODE', true);
 
 // Load Required Files
 require_once 'database.php';

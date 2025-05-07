@@ -4,19 +4,7 @@ requireLogin();
 
 // Obtener instituciones disponibles de Belvo
 function getBelvoInstitutions() {
-    $ch = curl_init(BELVO_API_URL . 'institutions/');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_USERPWD, BELVO_SECRET_ID . ":" . BELVO_SECRET_PASSWORD);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    if ($httpCode === 200) {
-        return json_decode($response, true);
-    }
-    return [];
+    return belvoApiRequest('/api/institutions/');
 }
 
 // Verificar conexiones existentes
@@ -39,55 +27,88 @@ $institutions = getBelvoInstitutions();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conexión Bancaria - <?php echo APP_NAME; ?></title>
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/style.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/dashboard.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.belvo.io/belvo-widget-1-stable.js"></script>
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100 bg-light">
     <?php include __DIR__ . '/../../includes/header.php'; ?>
-    
-    <div class="container">
-        <h1>Conexión Bancaria</h1>
-        
-        <?php if (empty($existingConnections)): ?>
-            <div class="info-box">
-                <p>Conecta tus cuentas bancarias para comenzar a gestionar tus deudas de manera inteligente.</p>
-            </div>
-        <?php else: ?>
-            <div class="connections-list">
-                <h2>Conexiones Activas</h2>
-                <?php foreach ($existingConnections as $connection): ?>
-                    <div class="connection-card">
-                        <div class="connection-info">
-                            <h3><?php echo htmlspecialchars($connection['institution_id']); ?></h3>
-                            <p>Cuentas conectadas: <?php echo $connection['account_count']; ?></p>
-                            <p>Última sincronización: <?php echo $connection['last_sync'] ? date('d/m/Y H:i', strtotime($connection['last_sync'])) : 'Nunca'; ?></p>
-                        </div>
-                        <div class="connection-actions">
-                            <button onclick="syncConnection('<?php echo $connection['id']; ?>')" class="btn-secondary">Sincronizar</button>
-                            <button onclick="deleteConnection('<?php echo $connection['id']; ?>')" class="btn-danger">Eliminar</button>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
 
-        <div class="connect-new">
-            <h2>Conectar Nueva Cuenta</h2>
-            <div class="institutions-grid">
-                <?php foreach ($institutions as $institution): ?>
-                    <div class="institution-card" onclick="connectBank('<?php echo $institution['id']; ?>')">
-                        <img src="<?php echo $institution['logo_url']; ?>" alt="<?php echo $institution['name']; ?>">
-                        <h3><?php echo $institution['name']; ?></h3>
+    <main class="flex-grow-1">
+        <div class="container py-4">
+            <h1 class="mb-4">Conexión Bancaria</h1>
+            
+            <?php if (empty($existingConnections)): ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Conecta tus cuentas bancarias para comenzar a gestionar tus deudas de manera inteligente.
+                </div>
+            <?php else: ?>
+                <div class="mb-4">
+                    <h2>Conexiones Activas</h2>
+                    <div class="row">
+                        <?php foreach ($existingConnections as $connection): ?>
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <h5 class="card-title">
+                                            <i class="fas fa-university"></i> 
+                                            <?php echo htmlspecialchars($connection['institution_id']); ?>
+                                        </h5>
+                                        <p class="card-text">
+                                            <i class="fas fa-credit-card"></i> 
+                                            Cuentas conectadas: <?php echo $connection['account_count']; ?>
+                                        </p>
+                                        <p class="card-text">
+                                            <i class="fas fa-sync"></i> 
+                                            Última sincronización: 
+                                            <?php echo $connection['last_sync'] ? date('d/m/Y H:i', strtotime($connection['last_sync'])) : 'Nunca'; ?>
+                                        </p>
+                                        <div class="d-flex gap-2">
+                                            <button onclick="syncConnection('<?php echo $connection['id']; ?>')" 
+                                                    class="btn btn-primary btn-sm">
+                                                <i class="fas fa-sync"></i> Sincronizar
+                                            </button>
+                                            <button onclick="deleteConnection('<?php echo $connection['id']; ?>')" 
+                                                    class="btn btn-danger btn-sm">
+                                                <i class="fas fa-trash"></i> Eliminar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
-                <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="mt-4">
+                <h2>Conectar Nueva Cuenta</h2>
+                <div class="row">
+                    <?php foreach ($institutions as $institution): ?>
+                        <div class="col-md-4 col-lg-3 mb-3">
+                            <div class="card h-100 institution-card" 
+                                 onclick="connectBank('<?php echo $institution['id']; ?>')"
+                                 style="cursor: pointer;">
+                                <div class="card-body text-center">
+                                    <img src="<?php echo $institution['logo_url']; ?>" 
+                                         alt="<?php echo $institution['name']; ?>"
+                                         class="img-fluid mb-3"
+                                         style="max-height: 50px;">
+                                    <h5 class="card-title"><?php echo $institution['name']; ?></h5>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <script src="<?php echo APP_URL; ?>/assets/js/belvo.js"></script>
+    <?php include __DIR__ . '/../../includes/footer.php'; ?>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function connectBank(institutionId) {
-            // Inicializar el widget de Belvo
             belvoSDK.createWidget({
                 institution: institutionId,
                 callback: function(link) {
