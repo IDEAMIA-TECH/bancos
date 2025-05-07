@@ -3,21 +3,14 @@ CREATE DATABASE IF NOT EXISTS ideamiadev_deudas CHARACTER SET utf8mb4 COLLATE ut
 USE ideamiadev_deudas;
 
 -- Users table
-CREATE TABLE users (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    email VARCHAR(255) UNIQUE NOT NULL,
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    phone VARCHAR(20),
-    role ENUM('user', 'admin') DEFAULT 'user',
-    status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
-    two_factor_enabled BOOLEAN DEFAULT FALSE,
-    two_factor_secret VARCHAR(32),
-    last_login DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Bank Connections table
 CREATE TABLE bank_connections (
@@ -68,33 +61,29 @@ CREATE TABLE categories (
 );
 
 -- Debts table
-CREATE TABLE debts (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS debts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     name VARCHAR(100) NOT NULL,
-    amount DECIMAL(15,2) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
     interest_rate DECIMAL(5,2) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE,
     status ENUM('active', 'paid', 'defaulted') DEFAULT 'active',
-    payment_method ENUM('snowball', 'avalanche', 'custom') DEFAULT 'custom',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Debt Payments table
-CREATE TABLE debt_payments (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     debt_id INT NOT NULL,
-    amount DECIMAL(15,2) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
     payment_date DATE NOT NULL,
-    status ENUM('pending', 'completed', 'failed') DEFAULT 'pending',
-    transaction_id INT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE,
-    FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
-);
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (debt_id) REFERENCES debts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Notifications table
 CREATE TABLE notifications (
