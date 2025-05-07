@@ -1,7 +1,4 @@
 <?php
-// Prevent any output before headers
-ob_start();
-
 // Load configuration first
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
@@ -68,8 +65,15 @@ switch ($request) {
         break;
 }
 
-// Flush output buffer
-ob_end_flush();
+// Redirect to dashboard if already logged in
+if (isLoggedIn()) {
+    header('Location: ' . APP_URL . '/dashboard');
+    exit;
+}
+
+// Redirect to login page
+header('Location: ' . APP_URL . '/login');
+exit;
 ?>
 <!DOCTYPE html>
 <html lang="es">
