@@ -7,12 +7,15 @@ $stmt = $pdo->prepare("
     SELECT 
         d.amount as debt_amount,
         d.interest_rate,
-        d.minimum_payment,
+        d.name as debt_name,
         t.amount as transaction_amount,
-        t.category,
-        t.transaction_date
+        t.description as transaction_description,
+        t.transaction_date,
+        c.name as category_name,
+        c.type as category_type
     FROM debts d
     LEFT JOIN transactions t ON d.user_id = t.user_id
+    LEFT JOIN categories c ON t.category_id = c.id
     WHERE d.user_id = ? AND d.status = 'active'
     ORDER BY t.transaction_date DESC
 ");
@@ -34,11 +37,11 @@ foreach ($transactions as $transaction) {
     if ($transaction['transaction_amount']) {
         $total_transactions += $transaction['transaction_amount'];
         
-        if ($transaction['category']) {
-            if (!isset($category_totals[$transaction['category']])) {
-                $category_totals[$transaction['category']] = 0;
+        if ($transaction['category_name']) {
+            if (!isset($category_totals[$transaction['category_name']])) {
+                $category_totals[$transaction['category_name']] = 0;
             }
-            $category_totals[$transaction['category']] += $transaction['transaction_amount'];
+            $category_totals[$transaction['category_name']] += $transaction['transaction_amount'];
         }
     }
 }
@@ -117,6 +120,7 @@ foreach ($transactions as $transaction) {
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
+                                    <th>Descripción</th>
                                     <th>Categoría</th>
                                     <th>Monto</th>
                                 </tr>
@@ -126,8 +130,19 @@ foreach ($transactions as $transaction) {
                                     <?php if ($transaction['transaction_amount']): ?>
                                         <tr>
                                             <td><?php echo date('d/m/Y', strtotime($transaction['transaction_date'])); ?></td>
-                                            <td><?php echo htmlspecialchars($transaction['category']); ?></td>
-                                            <td>$<?php echo number_format($transaction['transaction_amount'], 2); ?></td>
+                                            <td><?php echo htmlspecialchars($transaction['transaction_description']); ?></td>
+                                            <td>
+                                                <?php if ($transaction['category_name']): ?>
+                                                    <span class="badge bg-<?php echo $transaction['category_type'] === 'income' ? 'success' : 'danger'; ?>">
+                                                        <?php echo htmlspecialchars($transaction['category_name']); ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">Sin categoría</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="<?php echo $transaction['category_type'] === 'income' ? 'text-success' : 'text-danger'; ?>">
+                                                $<?php echo number_format($transaction['transaction_amount'], 2); ?>
+                                            </td>
                                         </tr>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
