@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../includes/auth_functions.php';
 require_once __DIR__ . '/../../config/belvo.php';
-require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../config/config.php';
 requireLogin();
 
 // Habilitar visualización de errores
