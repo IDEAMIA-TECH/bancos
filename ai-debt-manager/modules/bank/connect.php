@@ -4,7 +4,17 @@ requireLogin();
 
 // Obtener instituciones disponibles de Belvo
 function getBelvoInstitutions() {
-    return belvoApiRequest('/api/institutions/');
+    try {
+        $response = belvoApiRequest('/api/institutions/');
+        if (!is_array($response)) {
+            error_log('Error en respuesta de Belvo: ' . print_r($response, true));
+            return [];
+        }
+        return $response;
+    } catch (Exception $e) {
+        error_log('Error al obtener instituciones de Belvo: ' . $e->getMessage());
+        return [];
+    }
 }
 
 // Verificar conexiones existentes
@@ -83,23 +93,32 @@ $institutions = getBelvoInstitutions();
 
             <div class="mt-4">
                 <h2>Conectar Nueva Cuenta</h2>
-                <div class="row">
-                    <?php foreach ($institutions as $institution): ?>
-                        <div class="col-md-4 col-lg-3 mb-3">
-                            <div class="card h-100 institution-card" 
-                                 onclick="connectBank('<?php echo $institution['id']; ?>')"
-                                 style="cursor: pointer;">
-                                <div class="card-body text-center">
-                                    <img src="<?php echo $institution['logo_url']; ?>" 
-                                         alt="<?php echo $institution['name']; ?>"
-                                         class="img-fluid mb-3"
-                                         style="max-height: 50px;">
-                                    <h5 class="card-title"><?php echo $institution['name']; ?></h5>
+                <?php if (empty($institutions)): ?>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        No se pudieron cargar las instituciones bancarias. Por favor, intente más tarde.
+                    </div>
+                <?php else: ?>
+                    <div class="row">
+                        <?php foreach ($institutions as $institution): ?>
+                            <?php if (isset($institution['id']) && isset($institution['name']) && isset($institution['logo_url'])): ?>
+                                <div class="col-md-4 col-lg-3 mb-3">
+                                    <div class="card h-100 institution-card" 
+                                         onclick="connectBank('<?php echo htmlspecialchars($institution['id']); ?>')"
+                                         style="cursor: pointer;">
+                                        <div class="card-body text-center">
+                                            <img src="<?php echo htmlspecialchars($institution['logo_url']); ?>" 
+                                                 alt="<?php echo htmlspecialchars($institution['name']); ?>"
+                                                 class="img-fluid mb-3"
+                                                 style="max-height: 50px;">
+                                            <h5 class="card-title"><?php echo htmlspecialchars($institution['name']); ?></h5>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </main>
@@ -130,6 +149,10 @@ $institutions = getBelvoInstitutions();
                         } else {
                             alert('Error al conectar la cuenta: ' + data.message);
                         }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error al conectar la cuenta. Por favor, intente más tarde.');
                     });
                 }
             });
@@ -152,6 +175,10 @@ $institutions = getBelvoInstitutions();
                 } else {
                     alert('Error al sincronizar: ' + data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al sincronizar. Por favor, intente más tarde.');
             });
         }
 
@@ -173,6 +200,10 @@ $institutions = getBelvoInstitutions();
                     } else {
                         alert('Error al eliminar la conexión: ' + data.message);
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al eliminar la conexión. Por favor, intente más tarde.');
                 });
             }
         }
