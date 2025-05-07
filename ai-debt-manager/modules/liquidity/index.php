@@ -23,10 +23,8 @@ $transactions = $stmt->fetchAll();
 
 // Get user's active debts
 $stmt = $pdo->prepare("
-    SELECT d.*, a.account_number, bc.institution_id
+    SELECT d.*
     FROM debts d
-    JOIN accounts a ON d.account_id = a.id
-    JOIN bank_connections bc ON a.bank_connection_id = bc.id
     WHERE d.user_id = ? AND d.status = 'active'
 ");
 $stmt->execute([$_SESSION['user_id']]);
@@ -67,7 +65,19 @@ $avg_daily_expenses = array_sum($daily_expenses) / count($daily_expenses);
 // Calculate monthly debt payments
 $monthly_debt_payments = 0;
 foreach ($debts as $debt) {
-    $monthly_debt_payments += $debt['monthly_payment'];
+    // Calculate monthly payment based on debt amount and interest rate
+    $principal = $debt['amount'];
+    $interest_rate = $debt['interest_rate'] / 100 / 12; // Monthly interest rate
+    $months = 12; // Assuming 12 months payment period
+    
+    if ($interest_rate > 0) {
+        $monthly_payment = ($principal * $interest_rate * pow(1 + $interest_rate, $months)) / 
+                          (pow(1 + $interest_rate, $months) - 1);
+    } else {
+        $monthly_payment = $principal / $months;
+    }
+    
+    $monthly_debt_payments += $monthly_payment;
 }
 
 // Predict liquidity for the next 30 days
