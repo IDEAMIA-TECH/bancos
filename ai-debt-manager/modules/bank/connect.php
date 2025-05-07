@@ -5,14 +5,23 @@ requireLogin();
 // Obtener instituciones disponibles de Belvo
 function getBelvoInstitutions() {
     try {
+        error_log('Iniciando solicitud a Belvo API...');
         $response = belvoApiRequest('/api/institutions/');
+        error_log('Respuesta de Belvo API: ' . print_r($response, true));
+        
         if (!is_array($response)) {
-            error_log('Error en respuesta de Belvo: ' . print_r($response, true));
+            error_log('Error en respuesta de Belvo: La respuesta no es un array. Tipo: ' . gettype($response));
             return [];
         }
+        
+        if (empty($response)) {
+            error_log('Advertencia: La respuesta de Belvo está vacía');
+        }
+        
         return $response;
     } catch (Exception $e) {
         error_log('Error al obtener instituciones de Belvo: ' . $e->getMessage());
+        error_log('Stack trace: ' . $e->getTraceAsString());
         return [];
     }
 }
@@ -30,6 +39,7 @@ $existingConnections = $stmt->fetchAll();
 
 // Obtener instituciones disponibles
 $institutions = getBelvoInstitutions();
+error_log('Instituciones obtenidas: ' . print_r($institutions, true));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -100,6 +110,12 @@ $institutions = getBelvoInstitutions();
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle"></i> 
                         No se pudieron cargar las instituciones bancarias. Por favor, intente más tarde.
+                        <?php if (isset($_SESSION['debug']) && $_SESSION['debug']): ?>
+                            <br>
+                            <small class="text-muted">
+                                Error: <?php echo error_get_last()['message'] ?? 'No hay error específico'; ?>
+                            </small>
+                        <?php endif; ?>
                     </div>
                 <?php else: ?>
                     <div class="row">
