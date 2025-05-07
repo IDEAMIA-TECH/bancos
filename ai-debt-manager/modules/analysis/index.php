@@ -2,52 +2,46 @@
 require_once __DIR__ . '/../../includes/auth_functions.php';
 requireLogin();
 
-// Get user's financial analysis data
+// Get user's financial data
 $stmt = $pdo->prepare("
     SELECT 
-        (SELECT SUM(d.amount) FROM debts d WHERE d.user_id = ? AND d.status = 'active') as total_debt,
-        (SELECT SUM(p.amount) FROM payments p 
-         JOIN debts d ON p.debt_id = d.id 
-         WHERE d.user_id = ? 
-         AND p.payment_date >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)) as monthly_payments,
-        (SELECT AVG(d.interest_rate) FROM debts d WHERE d.user_id = ? AND d.status = 'active') as avg_interest_rate
-");
-$stmt->execute([$_SESSION['user_id'], $_SESSION['user_id'], $_SESSION['user_id']]);
-$analysis = $stmt->fetch();
-
-// Get debt distribution by interest rate
-$stmt = $pdo->prepare("
-    SELECT 
-        CASE 
-            WHEN interest_rate <= 10 THEN 'Bajo (0-10%)'
-            WHEN interest_rate <= 20 THEN 'Medio (11-20%)'
-            WHEN interest_rate <= 30 THEN 'Alto (21-30%)'
-            ELSE 'Muy Alto (>30%)'
-        END as rate_category,
-        COUNT(*) as count,
-        SUM(amount) as total_amount
-    FROM debts 
-    WHERE user_id = ? AND status = 'active'
-    GROUP BY rate_category
-    ORDER BY MIN(interest_rate)
+        d.amount as debt_amount,
+        d.interest_rate,
+        d.minimum_payment,
+        t.amount as transaction_amount,
+        t.category,
+        t.transaction_date
+    FROM debts d
+    LEFT JOIN transactions t ON d.user_id = t.user_id
+    WHERE d.user_id = ? AND d.status = 'active'
+    ORDER BY t.transaction_date DESC
 ");
 $stmt->execute([$_SESSION['user_id']]);
-$interest_distribution = $stmt->fetchAll();
+$transactions = $stmt->fetchAll();
 
-// Get payment history
-$stmt = $pdo->prepare("
-    SELECT 
-        DATE_FORMAT(payment_date, '%Y-%m') as month,
-        SUM(amount) as total_payment
-    FROM payments p
-    JOIN debts d ON p.debt_id = d.id
-    WHERE d.user_id = ?
-    GROUP BY month
-    ORDER BY month DESC
-    LIMIT 12
-");
-$stmt->execute([$_SESSION['user_id']]);
-$payment_history = $stmt->fetchAll();
+// Calculate summary statistics
+$total_debt = 0;
+$total_interest = 0;
+$total_transactions = 0;
+$category_totals = [];
+
+foreach ($transactions as $transaction) {
+    if ($transaction['debt_amount']) {
+        $total_debt += $transaction['debt_amount'];
+        $total_interest += ($transaction['debt_amount'] * $transaction['interest_rate'] / 100);
+    }
+    
+    if ($transaction['transaction_amount']) {
+        $total_transactions += $transaction['transaction_amount'];
+        
+        if ($transaction['category']) {
+            if (!isset($category_totals[$transaction['category']])) {
+                $category_totals[$transaction['category']] = 0;
+            }
+            $category_totals[$transaction['category']] += $transaction['transaction_amount'];
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -72,23 +66,23 @@ $payment_history = $stmt->fetchAll();
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title">Deuda Total</h5>
-                            <h2 class="text-danger">$<?php echo number_format($analysis['total_debt'], 2); ?></h2>
+                            <h2 class="text-danger">$<?php echo number_format($total_debt, 2); ?></h2>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="card">
                         <div class="card-body">
-                            <h5 class="card-title">Pagos Mensuales</h5>
-                            <h2 class="text-success">$<?php echo number_format($analysis['monthly_payments'], 2); ?></h2>
+                            <h5 class="card-title">Interés Total</h5>
+                            <h2 class="text-warning">$<?php echo number_format($total_interest, 2); ?></h2>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="card">
                         <div class="card-body">
-                            <h5 class="card-title">Tasa de Interés Promedio</h5>
-                            <h2 class="text-primary"><?php echo number_format($analysis['avg_interest_rate'], 1); ?>%</h2>
+                            <h5 class="card-title">Transacciones Totales</h5>
+                            <h2 class="text-primary">$<?php echo number_format($total_transactions, 2); ?></h2>
                         </div>
                     </div>
                 </div>
@@ -99,56 +93,46 @@ $payment_history = $stmt->fetchAll();
                 <div class="col-md-6">
                     <div class="card mb-4">
                         <div class="card-body">
-                            <h5 class="card-title">Distribución por Tasa de Interés</h5>
-                            <div class="chart-container">
-                                <canvas id="interestDistributionChart"></canvas>
-                            </div>
+                            <h5 class="card-title">Distribución por Categoría</h5>
+                            <canvas id="categoryChart"></canvas>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="card mb-4">
                         <div class="card-body">
-                            <h5 class="card-title">Historial de Pagos</h5>
-                            <div class="chart-container">
-                                <canvas id="paymentHistoryChart"></canvas>
-                            </div>
+                            <h5 class="card-title">Tendencia de Gastos</h5>
+                            <canvas id="trendChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Recomendaciones -->
-            <div class="card mb-4">
+            <!-- Últimas Transacciones -->
+            <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Recomendaciones</h5>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6>Estrategia de Pago</h6>
-                            <ul class="list-unstyled">
-                                <li class="mb-2">
-                                    <i class="fas fa-check-circle text-success me-2"></i>
-                                    Prioriza el pago de deudas con tasas de interés más altas
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check-circle text-success me-2"></i>
-                                    Considera consolidar deudas con tasas similares
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="col-md-6">
-                            <h6>Optimización</h6>
-                            <ul class="list-unstyled">
-                                <li class="mb-2">
-                                    <i class="fas fa-check-circle text-success me-2"></i>
-                                    Mantén un fondo de emergencia equivalente a 3 meses de pagos
-                                </li>
-                                <li class="mb-2">
-                                    <i class="fas fa-check-circle text-success me-2"></i>
-                                    Revisa periódicamente las tasas de interés del mercado
-                                </li>
-                            </ul>
-                        </div>
+                    <h5 class="card-title">Últimas Transacciones</h5>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Categoría</th>
+                                    <th>Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($transactions as $transaction): ?>
+                                    <?php if ($transaction['transaction_amount']): ?>
+                                        <tr>
+                                            <td><?php echo date('d/m/Y', strtotime($transaction['transaction_date'])); ?></td>
+                                            <td><?php echo htmlspecialchars($transaction['category']); ?></td>
+                                            <td>$<?php echo number_format($transaction['transaction_amount'], 2); ?></td>
+                                        </tr>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -158,19 +142,20 @@ $payment_history = $stmt->fetchAll();
     <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
     <script>
-        // Distribución por Tasa de Interés
-        const interestCtx = document.getElementById('interestDistributionChart').getContext('2d');
-        new Chart(interestCtx, {
+        // Gráfico de Categorías
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(categoryCtx, {
             type: 'pie',
             data: {
-                labels: <?php echo json_encode(array_column($interest_distribution, 'rate_category')); ?>,
+                labels: <?php echo json_encode(array_keys($category_totals)); ?>,
                 datasets: [{
-                    data: <?php echo json_encode(array_column($interest_distribution, 'total_amount')); ?>,
+                    data: <?php echo json_encode(array_values($category_totals)); ?>,
                     backgroundColor: [
-                        '#4caf50',
-                        '#ff9800',
-                        '#f44336',
-                        '#9c27b0'
+                        '#FF6384',
+                        '#36A2EB',
+                        '#FFCE56',
+                        '#4BC0C0',
+                        '#9966FF'
                     ]
                 }]
             },
@@ -184,26 +169,32 @@ $payment_history = $stmt->fetchAll();
             }
         });
 
-        // Historial de Pagos
-        const paymentCtx = document.getElementById('paymentHistoryChart').getContext('2d');
-        new Chart(paymentCtx, {
+        // Gráfico de Tendencia
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        const dates = <?php echo json_encode(array_map(function($t) { 
+            return date('d/m/Y', strtotime($t['transaction_date'])); 
+        }, array_filter($transactions, function($t) { 
+            return $t['transaction_amount']; 
+        }))); ?>;
+        const amounts = <?php echo json_encode(array_map(function($t) { 
+            return $t['transaction_amount']; 
+        }, array_filter($transactions, function($t) { 
+            return $t['transaction_amount']; 
+        }))); ?>;
+
+        new Chart(trendCtx, {
             type: 'line',
             data: {
-                labels: <?php echo json_encode(array_column($payment_history, 'month')); ?>,
+                labels: dates,
                 datasets: [{
-                    label: 'Pagos Mensuales',
-                    data: <?php echo json_encode(array_column($payment_history, 'total_payment')); ?>,
-                    borderColor: '#2196f3',
+                    label: 'Monto',
+                    data: amounts,
+                    borderColor: '#36A2EB',
                     tension: 0.1
                 }]
             },
             options: {
                 responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                },
                 scales: {
                     y: {
                         beginAtZero: true

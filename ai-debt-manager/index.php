@@ -49,6 +49,9 @@ switch ($request) {
     case '/debts/strategy':
         require __DIR__ . '/modules/debts/strategy.php';
         break;
+    case '/debts/plan':
+        require __DIR__ . '/modules/debts/plan.php';
+        break;
     case '/transactions/categorize':
         require __DIR__ . '/modules/transactions/categorize.php';
         break;

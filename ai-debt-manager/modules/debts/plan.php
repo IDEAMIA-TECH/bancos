@@ -2,241 +2,268 @@
 require_once __DIR__ . '/../../includes/auth_functions.php';
 requireLogin();
 
-// Validate debt_id parameter
-if (!isset($_GET['debt_id'])) {
-    header('Location: list.php');
-    exit();
-}
+// Get debt ID from URL
+$debt_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-$debt_id = $_GET['debt_id'];
-
-// Get debt information
+// Get debt details
 $stmt = $pdo->prepare("
-    SELECT d.*, a.account_number, a.account_type, bc.institution_id
+    SELECT 
+        d.*,
+        (SELECT SUM(amount) FROM payments WHERE debt_id = d.id) as total_paid
     FROM debts d
-    JOIN accounts a ON d.account_id = a.id
-    JOIN bank_connections bc ON a.bank_connection_id = bc.id
-    WHERE d.id = ? AND d.user_id = ?
+    WHERE d.id = ? AND d.user_id = ? AND d.status = 'active'
 ");
 $stmt->execute([$debt_id, $_SESSION['user_id']]);
 $debt = $stmt->fetch();
 
 if (!$debt) {
-    header('Location: list.php');
-    exit();
+    header('Location: ' . APP_URL . '/debts/list');
+    exit;
 }
 
-// Get existing payment plan if any
+// Calculate remaining amount and progress
+$debt['remaining_amount'] = $debt['amount'] - ($debt['total_paid'] ?? 0);
+$debt['progress'] = ($debt['total_paid'] ?? 0) / $debt['amount'] * 100;
+
+// Get payment history
 $stmt = $pdo->prepare("
-    SELECT * FROM payment_plans 
-    WHERE debt_id = ? AND status = 'active'
-    ORDER BY created_at DESC LIMIT 1
+    SELECT * FROM payments 
+    WHERE debt_id = ? 
+    ORDER BY payment_date DESC
 ");
 $stmt->execute([$debt_id]);
-$current_plan = $stmt->fetch();
+$payments = $stmt->fetchAll();
+
+// Calculate payment schedule
+$monthly_interest = $debt['interest_rate'] / 12 / 100;
+$remaining_months = ceil($debt['remaining_amount'] / $debt['minimum_payment']);
+$payment_schedule = [];
+
+$balance = $debt['remaining_amount'];
+$payment_date = new DateTime($debt['next_payment_date']);
+
+for ($i = 0; $i < $remaining_months && $balance > 0; $i++) {
+    $interest = $balance * $monthly_interest;
+    $principal = $debt['minimum_payment'] - $interest;
+    $balance -= $principal;
+
+    $payment_schedule[] = [
+        'date' => $payment_date->format('Y-m-d'),
+        'payment' => $debt['minimum_payment'],
+        'interest' => $interest,
+        'principal' => $principal,
+        'balance' => max(0, $balance)
+    ];
+
+    $payment_date->modify('+1 month');
+}
+
+// Handle new payment submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['amount'])) {
+    $stmt = $pdo->prepare("
+        INSERT INTO payments (debt_id, amount, payment_date, notes)
+        VALUES (?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $debt_id,
+        $_POST['amount'],
+        $_POST['payment_date'] ?? date('Y-m-d'),
+        $_POST['notes'] ?? null
+    ]);
+
+    // Redirect to avoid form resubmission
+    header('Location: ' . $_SERVER['REQUEST_URI']);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plan de Pagos - <?php echo APP_NAME; ?></title>
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/dashboard.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/debts.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Plan de Pagos - <?php echo htmlspecialchars($debt['name']); ?> - <?php echo APP_NAME; ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100 bg-light">
     <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-    <div class="container">
-        <div class="debt-info-header">
-            <div class="bank-info">
-                <h2><?php echo htmlspecialchars($debt['institution_id']); ?></h2>
-                <p class="account-number">Cuenta: <?php echo htmlspecialchars($debt['account_number']); ?></p>
+    <main class="flex-grow-1">
+        <div class="container py-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h1 class="mb-1"><?php echo htmlspecialchars($debt['name']); ?></h1>
+                    <p class="text-muted mb-0">Plan de Pagos</p>
+                </div>
+                <a href="<?php echo APP_URL; ?>/debts/list" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver a Deudas
+                </a>
             </div>
-            <div class="debt-summary">
-                <div class="summary-item">
-                    <span class="label">Deuda Actual</span>
-                    <span class="value">$<?php echo number_format($debt['current_amount'], 2); ?></span>
+
+            <!-- Resumen -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Monto Original</h5>
+                            <h2 class="text-primary">$<?php echo number_format($debt['amount'], 2); ?></h2>
+                        </div>
+                    </div>
                 </div>
-                <div class="summary-item">
-                    <span class="label">Tasa de Interés</span>
-                    <span class="value"><?php echo $debt['interest_rate']; ?>%</span>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Saldo Restante</h5>
+                            <h2 class="text-danger">$<?php echo number_format($debt['remaining_amount'], 2); ?></h2>
+                        </div>
+                    </div>
                 </div>
-                <div class="summary-item">
-                    <span class="label">Fecha de Vencimiento</span>
-                    <span class="value"><?php echo date('d/m/Y', strtotime($debt['due_date'])); ?></span>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Tasa de Interés</h5>
+                            <h2 class="text-warning"><?php echo number_format($debt['interest_rate'], 1); ?>%</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Pago Mínimo</h5>
+                            <h2 class="text-success">$<?php echo number_format($debt['minimum_payment'], 2); ?></h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progreso -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Progreso de Pago</h5>
+                    <div class="progress mb-2" style="height: 25px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: <?php echo $debt['progress']; ?>%"
+                             aria-valuenow="<?php echo $debt['progress']; ?>" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            <?php echo number_format($debt['progress'], 1); ?>%
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted">
+                        <small>Pagado: $<?php echo number_format($debt['total_paid'] ?? 0, 2); ?></small>
+                        <small>Total: $<?php echo number_format($debt['amount'], 2); ?></small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <!-- Calendario de Pagos -->
+                <div class="col-md-8">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Calendario de Pagos</h5>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Pago</th>
+                                            <th>Interés</th>
+                                            <th>Principal</th>
+                                            <th>Saldo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($payment_schedule as $payment): ?>
+                                            <tr>
+                                                <td><?php echo date('d/m/Y', strtotime($payment['date'])); ?></td>
+                                                <td>$<?php echo number_format($payment['payment'], 2); ?></td>
+                                                <td>$<?php echo number_format($payment['interest'], 2); ?></td>
+                                                <td>$<?php echo number_format($payment['principal'], 2); ?></td>
+                                                <td>$<?php echo number_format($payment['balance'], 2); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registrar Pago -->
+                <div class="col-md-4">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Registrar Pago</h5>
+                            <form method="POST">
+                                <div class="mb-3">
+                                    <label class="form-label">Monto</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" name="amount" 
+                                               step="0.01" min="<?php echo $debt['minimum_payment']; ?>" 
+                                               required>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Fecha de Pago</label>
+                                    <input type="date" class="form-control" name="payment_date" 
+                                           value="<?php echo date('Y-m-d'); ?>" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Notas</label>
+                                    <textarea class="form-control" name="notes" rows="2"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-save me-2"></i>Registrar Pago
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Historial de Pagos -->
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Historial de Pagos</h5>
+                            <?php if (empty($payments)): ?>
+                                <p class="text-muted">No hay pagos registrados</p>
+                            <?php else: ?>
+                                <div class="list-group list-group-flush">
+                                    <?php foreach ($payments as $payment): ?>
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">$<?php echo number_format($payment['amount'], 2); ?></h6>
+                                                    <small class="text-muted">
+                                                        <?php echo date('d/m/Y', strtotime($payment['payment_date'])); ?>
+                                                    </small>
+                                                </div>
+                                                <?php if ($payment['notes']): ?>
+                                                    <span class="badge bg-light text-dark" data-bs-toggle="tooltip" 
+                                                          title="<?php echo htmlspecialchars($payment['notes']); ?>">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+    </main>
 
-        <?php if ($current_plan): ?>
-            <div class="current-plan">
-                <h3>Plan de Pagos Actual</h3>
-                <div class="plan-details">
-                    <div class="detail">
-                        <span class="label">Pago Mensual</span>
-                        <span class="value">$<?php echo number_format($current_plan['monthly_payment'], 2); ?></span>
-                    </div>
-                    <div class="detail">
-                        <span class="label">Fecha de Inicio</span>
-                        <span class="value"><?php echo date('d/m/Y', strtotime($current_plan['start_date'])); ?></span>
-                    </div>
-                    <div class="detail">
-                        <span class="label">Fecha de Término</span>
-                        <span class="value"><?php echo date('d/m/Y', strtotime($current_plan['end_date'])); ?></span>
-                    </div>
-                </div>
-                <div class="plan-progress">
-                    <canvas id="progressChart"></canvas>
-                </div>
-            </div>
-        <?php else: ?>
-            <div class="plan-options">
-                <h3>Crear Nuevo Plan de Pagos</h3>
-                <form id="planForm" class="plan-form">
-                    <input type="hidden" name="debt_id" value="<?php echo $debt_id; ?>">
-                    
-                    <div class="form-group">
-                        <label for="payment_method">Método de Pago</label>
-                        <select name="payment_method" id="payment_method" required>
-                            <option value="50_30_20">Método 50/30/20</option>
-                            <option value="snowball">Método Snowball</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="monthly_payment">Pago Mensual</label>
-                        <input type="number" name="monthly_payment" id="monthly_payment" 
-                               min="<?php echo $debt['current_amount'] * 0.01; ?>" 
-                               step="0.01" required>
-                        <small>Mínimo: $<?php echo number_format($debt['current_amount'] * 0.01, 2); ?></small>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="start_date">Fecha de Inicio</label>
-                        <input type="date" name="start_date" id="start_date" 
-                               min="<?php echo date('Y-m-d'); ?>" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="target_date">Fecha Objetivo</label>
-                        <input type="date" name="target_date" id="target_date" required>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary">Generar Plan</button>
-                        <button type="button" onclick="calculateProjection()" class="btn-secondary">
-                            Calcular Proyección
-                        </button>
-                    </div>
-                </form>
-
-                <div id="projectionResults" class="projection-results" style="display: none;">
-                    <h4>Proyección de Pagos</h4>
-                    <div class="projection-chart">
-                        <canvas id="projectionChart"></canvas>
-                    </div>
-                    <div class="projection-summary">
-                        <div class="summary-item">
-                            <span class="label">Total a Pagar</span>
-                            <span class="value" id="totalPayment"></span>
-                        </div>
-                        <div class="summary-item">
-                            <span class="label">Intereses Totales</span>
-                            <span class="value" id="totalInterest"></span>
-                        </div>
-                        <div class="summary-item">
-                            <span class="label">Tiempo Estimado</span>
-                            <span class="value" id="estimatedTime"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
-    </div>
+    <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
     <script>
-        function calculateProjection() {
-            const formData = new FormData(document.getElementById('planForm'));
-            const data = Object.fromEntries(formData.entries());
-
-            fetch('/api/debt/calculate.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    displayProjection(data.projection);
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error al calcular la proyección');
-            });
-        }
-
-        function displayProjection(projection) {
-            document.getElementById('projectionResults').style.display = 'block';
-            document.getElementById('totalPayment').textContent = '$' + projection.total_payment.toFixed(2);
-            document.getElementById('totalInterest').textContent = '$' + projection.total_interest.toFixed(2);
-            document.getElementById('estimatedTime').textContent = projection.months + ' meses';
-
-            // Create projection chart
-            const ctx = document.getElementById('projectionChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: projection.months_labels,
-                    datasets: [{
-                        label: 'Saldo Restante',
-                        data: projection.balance_projection,
-                        borderColor: '#2196f3',
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-        }
-
-        <?php if ($current_plan): ?>
-        // Initialize progress chart for existing plan
-        const ctx = document.getElementById('progressChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Pagado', 'Pendiente'],
-                datasets: [{
-                    data: [
-                        <?php echo $debt['original_amount'] - $debt['current_amount']; ?>,
-                        <?php echo $debt['current_amount']; ?>
-                    ],
-                    backgroundColor: ['#4caf50', '#f44336']
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
         });
-        <?php endif; ?>
     </script>
 </body>
 </html> 
