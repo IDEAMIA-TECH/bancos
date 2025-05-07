@@ -1,5 +1,5 @@
 RewriteEngine On
-RewriteBase /ai-debt-manager/
+RewriteBase /deudas/
 
 # Forzar HTTPS
 RewriteCond %{HTTPS} off
@@ -37,4 +37,34 @@ Options -Indexes
 <FilesMatch "\.(env|config|sql|log)$">
     Order allow,deny
     Deny from all
-</FilesMatch> 
+</FilesMatch>
+
+# Permitir acceso a archivos CSS y JS
+<FilesMatch "\.(css|js|jpg|jpeg|png|gif|ico)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Configuración de caché para archivos estáticos
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+
+# Comprimir archivos
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+</IfModule> 
