@@ -1,79 +1,56 @@
 <?php
-// Load configuration first
+// Iniciar sesión si no está iniciada
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Cargar configuración
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/belvo.php';
 require_once __DIR__ . '/includes/auth_functions.php';
 
-// Start session after configuration
-session_start();
+// Obtener la URL solicitada
+$request_uri = $_SERVER['REQUEST_URI'];
+$base_path = '/deudas/';
+$path = str_replace($base_path, '', $request_uri);
+$path = strtok($path, '?'); // Eliminar query string
 
-// Basic routing
-$request = $_SERVER['REQUEST_URI'];
-$basePath = '/deudas';
-
-// Remove base path from request
-$request = str_replace($basePath, '', $request);
-
-// Simple router
-switch ($request) {
-    case '':
-    case '/':
-        // Redirect to dashboard if already logged in
-        if (isLoggedIn()) {
-            header('Location: ' . APP_URL . '/dashboard');
-            exit;
-        }
-
-        // Redirect to login page
+// Si no hay ruta o es la raíz, redirigir a login o dashboard
+if (empty($path) || $path === '/') {
+    if (isLoggedIn()) {
+        header('Location: ' . APP_URL . '/dashboard');
+    } else {
         header('Location: ' . APP_URL . '/login');
-        exit;
-        break;
-    case '/register':
-        require __DIR__ . '/modules/auth/register.php';
-        break;
-    case '/dashboard':
-        require __DIR__ . '/modules/dashboard/index.php';
-        break;
-    case '/analysis':
-        require __DIR__ . '/modules/analysis/index.php';
-        break;
-    case '/liquidity':
-        require __DIR__ . '/modules/liquidity/index.php';
-        break;
-    case '/debts/list':
-        require __DIR__ . '/modules/debts/list.php';
-        break;
-    case '/debts/consolidate':
-        require __DIR__ . '/modules/debts/consolidate.php';
-        break;
-    case '/debts/strategy':
-        require __DIR__ . '/modules/debts/strategy.php';
-        break;
-    case '/debts/plan':
-        require __DIR__ . '/modules/debts/plan.php';
-        break;
-    case '/transactions/categorize':
-        require __DIR__ . '/modules/transactions/categorize.php';
-        break;
-    case '/bank/connect':
-        require __DIR__ . '/modules/bank/connect.php';
-        break;
-    default:
-        http_response_code(404);
-        require __DIR__ . '/includes/404.php';
-        break;
-}
-
-// Redirect to dashboard if already logged in
-if (isLoggedIn()) {
-    header('Location: ' . APP_URL . '/dashboard');
+    }
     exit;
 }
 
-// Redirect to login page
-header('Location: ' . APP_URL . '/login');
-exit;
+// Mapeo de rutas a archivos
+$routes = [
+    'login' => 'modules/auth/login.php',
+    'register' => 'modules/auth/register.php',
+    'dashboard' => 'modules/dashboard/index.php',
+    'logout' => 'modules/auth/logout.php',
+    'profile' => 'modules/profile/index.php',
+    'bank' => 'modules/bank/connect.php',
+    'liquidity' => 'modules/liquidity/index.php',
+    'debts' => 'modules/debts/index.php',
+    'settings' => 'modules/settings/index.php'
+];
+
+// Verificar si la ruta existe
+if (isset($routes[$path])) {
+    $file = __DIR__ . '/' . $routes[$path];
+    if (file_exists($file)) {
+        require_once $file;
+        exit;
+    }
+}
+
+// Si la ruta no existe, mostrar error 404
+header("HTTP/1.0 404 Not Found");
+require_once __DIR__ . '/modules/errors/404.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">

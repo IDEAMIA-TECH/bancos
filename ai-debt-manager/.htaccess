@@ -1,23 +1,26 @@
 RewriteEngine On
 RewriteBase /deudas/
 
-# Forzar HTTPS
+# Si el archivo o directorio no existe, redirige a index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+
+# Asegurarse de que las solicitudes HTTPS sean redirigidas correctamente
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Si el request no es para un archivo o directorio
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+# Prevenir acceso directo a archivos sensibles
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
 
-# Redirigir todo a index.php
-RewriteRule ^(.*)$ index.php [QSA,L]
-
-# Headers de seguridad
-Header set X-Content-Type-Options "nosniff"
-Header set X-Frame-Options "SAMEORIGIN"
-Header set X-XSS-Protection "1; mode=block"
-Header set Referrer-Policy "strict-origin-when-cross-origin"
-Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+# Proteger archivos de configuración
+<FilesMatch "^(config\.php|database\.php|\.env)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
 
 # Configuración de PHP
 php_value upload_max_filesize 10M
@@ -25,19 +28,16 @@ php_value post_max_size 10M
 php_value max_execution_time 300
 php_value max_input_time 300
 
+# Configuración de seguridad
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
 # Prevenir listado de directorios
 Options -Indexes
-
-# Proteger archivos sensibles
-<FilesMatch "^\.">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
-
-<FilesMatch "\.(env|config|sql|log)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
 
 # Permitir acceso a archivos CSS y JS
 <FilesMatch "\.(css|js|jpg|jpeg|png|gif|ico)$">
