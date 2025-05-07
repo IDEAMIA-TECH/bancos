@@ -44,80 +44,70 @@ $debt_distribution = $stmt->fetchAll();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - <?php echo APP_NAME; ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="#"><?php echo APP_NAME; ?></a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo APP_URL; ?>/logout">Cerrar sesión</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+<body class="d-flex flex-column min-vh-100 bg-light">
+    <?php include __DIR__ . '/../../includes/header.php'; ?>
 
-    <div class="container py-4">
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Deuda Total</h5>
-                        <h2 class="text-danger">$<?php echo number_format($summary['total_debt'], 2); ?></h2>
-                        <p class="text-muted">Deudas activas: <?php echo $summary['active_debts']; ?></p>
+    <main class="flex-grow-1">
+        <div class="container py-4">
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Deuda Total</h5>
+                            <h2 class="text-danger">$<?php echo number_format($summary['total_debt'], 2); ?></h2>
+                            <p class="text-muted">Deudas activas: <?php echo $summary['active_debts']; ?></p>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Pagos del Mes</h5>
-                        <h2 class="text-success">$<?php echo number_format($summary['monthly_payments'], 2); ?></h2>
-                        <p class="text-muted">Últimos 30 días</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Distribución de Deudas</h5>
-                        <div class="chart-container">
-                            <canvas id="debtDistributionChart"></canvas>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Pagos del Mes</h5>
+                            <h2 class="text-success">$<?php echo number_format($summary['monthly_payments'], 2); ?></h2>
+                            <p class="text-muted">Últimos 30 días</p>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Pagos Recientes</h5>
-                        <div class="list-group">
-                            <?php foreach ($recent_payments as $payment): ?>
-                                <div class="list-group-item">
-                                    <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-1"><?php echo htmlspecialchars($payment['debt_name']); ?></h6>
-                                        <small><?php echo date('d/m/Y', strtotime($payment['payment_date'])); ?></small>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Distribución de Deudas</h5>
+                            <div class="chart-container">
+                                <canvas id="debtDistributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <h5 class="card-title">Pagos Recientes</h5>
+                            <div class="list-group">
+                                <?php foreach ($recent_payments as $payment): ?>
+                                    <div class="list-group-item">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1"><?php echo htmlspecialchars($payment['debt_name']); ?></h6>
+                                            <small><?php echo date('d/m/Y', strtotime($payment['payment_date'])); ?></small>
+                                        </div>
+                                        <p class="mb-1">$<?php echo number_format($payment['amount'], 2); ?></p>
                                     </div>
-                                    <p class="mb-1">$<?php echo number_format($payment['amount'], 2); ?></p>
-                                </div>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <?php include __DIR__ . '/../../includes/footer.php'; ?>
+
     <script>
         // Debt Distribution Chart
         const debtCtx = document.getElementById('debtDistributionChart').getContext('2d');
