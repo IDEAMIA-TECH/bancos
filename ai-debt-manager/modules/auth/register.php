@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($name) || empty($email) || empty($password) || empty($confirmPassword)) {
         $error = 'Por favor, complete todos los campos.';
-    } elseif (!validateEmail($email)) {
+    } elseif (!validateEmail($email)) { 
         $error = 'Por favor, ingrese un correo electrónico válido.';
     } elseif (!validatePassword($password)) {
         $error = 'La contraseña debe tener al menos 8 caracteres, una letra y un número.';
