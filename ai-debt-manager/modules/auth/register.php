@@ -5,14 +5,15 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = sanitizeInput($_POST['full_name'] ?? '');
+    $firstName = sanitizeInput($_POST['first_name'] ?? '');
+    $lastName = sanitizeInput($_POST['last_name'] ?? '');
     $email = sanitizeInput($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
-    if (empty($name) || empty($email) || empty($password) || empty($confirmPassword)) {
+    if (empty($firstName) || empty($lastName) || empty($email) || empty($password) || empty($confirmPassword)) {
         $error = 'Por favor, complete todos los campos.';
-    } elseif (!validateEmail($email)) { 
+    } elseif (!validateEmail($email)) {
         $error = 'Por favor, ingrese un correo electrónico válido.';
     } elseif (!validatePassword($password)) {
         $error = 'La contraseña debe tener al menos 8 caracteres, una letra y un número.';
@@ -28,8 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Crear nuevo usuario
                 $hashedPassword = hashPassword($password);
-                $stmt = $pdo->prepare("INSERT INTO users (email, password, name) VALUES (?, ?, ?)");
-                if ($stmt->execute([$email, $hashedPassword, $name])) {
+                $stmt = $pdo->prepare("INSERT INTO users (email, password, first_name, last_name, role, status) VALUES (?, ?, ?, ?, 'user', 'active')");
+                if ($stmt->execute([$email, $hashedPassword, $firstName, $lastName])) {
                     $success = 'Registro exitoso. Ahora puedes iniciar sesión.';
                 } else {
                     $error = 'Error al registrar el usuario. Por favor, intente nuevamente.';
@@ -68,8 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <form method="POST" action="">
                             <div class="mb-3">
-                                <label for="full_name" class="form-label">Nombre Completo</label>
-                                <input type="text" class="form-control" id="full_name" name="full_name" required>
+                                <label for="first_name" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="last_name" class="form-label">Apellido</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" required>
                             </div>
 
                             <div class="mb-3">
