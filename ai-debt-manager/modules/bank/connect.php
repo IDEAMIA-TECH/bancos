@@ -47,12 +47,36 @@ error_log('Instituciones obtenidas: ' . print_r($institutions, true));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conexión Bancaria - <?php echo APP_NAME; ?></title>
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" 
           integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" 
           crossorigin="anonymous" 
           referrerpolicy="no-referrer" />
+    <!-- Belvo Widget -->
     <script src="https://cdn.belvo.io/belvo-widget-1-stable.js"></script>
+    <style>
+        .institution-card {
+            transition: transform 0.2s;
+        }
+        .institution-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .card {
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .btn {
+            padding: 0.5rem 1rem;
+        }
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+        }
+    </style>
 </head>
 <body class="d-flex flex-column min-vh-100 bg-light">
     <?php include __DIR__ . '/../../includes/header.php'; ?>
@@ -144,6 +168,7 @@ error_log('Instituciones obtenidas: ' . print_r($institutions, true));
 
     <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
+    <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function connectBank(institutionId) {
