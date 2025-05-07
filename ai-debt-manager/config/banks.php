@@ -2,60 +2,66 @@
 // Configuración de bancos soportados
 $SUPPORTED_BANKS = [
     'banamex' => [
-        'name' => 'Citibanamex',
-        'login_url' => 'https://www.banamex.com/es/personas/',
-        'type' => 'selenium', // Tipo de scraping requerido
+        'name' => 'Banamex',
         'fields' => [
-            'username' => [
+            [
+                'name' => 'username',
+                'label' => 'Usuario',
                 'type' => 'text',
-                'label' => 'Número de Tarjeta o Usuario',
-                'placeholder' => 'Ingresa tu número de tarjeta o usuario'
+                'placeholder' => 'Ingresa tu usuario',
+                'required' => true
             ],
-            'password' => [
-                'type' => 'password',
+            [
+                'name' => 'password',
                 'label' => 'Contraseña',
-                'placeholder' => 'Ingresa tu contraseña'
+                'type' => 'password',
+                'placeholder' => 'Ingresa tu contraseña',
+                'required' => true
             ]
         ]
     ],
     'banorte' => [
         'name' => 'Banorte',
-        'login_url' => 'https://www.banorte.com/wps/portal/banorte/Home',
-        'type' => 'selenium',
         'fields' => [
-            'username' => [
-                'type' => 'text',
+            [
+                'name' => 'username',
                 'label' => 'Usuario',
-                'placeholder' => 'Ingresa tu usuario'
+                'type' => 'text',
+                'placeholder' => 'Ingresa tu usuario',
+                'required' => true
             ],
-            'password' => [
-                'type' => 'password',
+            [
+                'name' => 'password',
                 'label' => 'Contraseña',
-                'placeholder' => 'Ingresa tu contraseña'
+                'type' => 'password',
+                'placeholder' => 'Ingresa tu contraseña',
+                'required' => true
             ]
         ]
     ],
     'santander' => [
         'name' => 'Santander',
-        'login_url' => 'https://www.santander.com.mx/',
-        'type' => 'selenium',
         'fields' => [
-            'username' => [
-                'type' => 'text',
+            [
+                'name' => 'username',
                 'label' => 'Usuario',
-                'placeholder' => 'Ingresa tu usuario'
+                'type' => 'text',
+                'placeholder' => 'Ingresa tu usuario',
+                'required' => true
             ],
-            'password' => [
-                'type' => 'password',
+            [
+                'name' => 'password',
                 'label' => 'Contraseña',
-                'placeholder' => 'Ingresa tu contraseña'
+                'type' => 'password',
+                'placeholder' => 'Ingresa tu contraseña',
+                'required' => true
             ]
         ]
     ]
 ];
 
-// Configuración de seguridad
-define('ENCRYPTION_KEY', 'tu_clave_de_encriptacion_secreta'); // Cambiar en producción
+// Configuración de encriptación
+define('ENCRYPTION_KEY', 'your-encryption-key-here'); // Cambiar en producción
 define('ENCRYPTION_METHOD', 'aes-256-cbc');
 
 // Configuración de Selenium
@@ -63,10 +69,10 @@ define('SELENIUM_HOST', 'localhost');
 define('SELENIUM_PORT', '4444');
 define('SELENIUM_BROWSER', 'chrome');
 
-// Configuración de almacenamiento
-define('BANK_DATA_RETENTION_DAYS', 90); // Días que se mantienen los datos bancarios
-define('MAX_LOGIN_ATTEMPTS', 3); // Intentos máximos de inicio de sesión
-define('LOGIN_TIMEOUT', 300); // Tiempo máximo de espera para inicio de sesión (segundos)
+// Configuración de retención de datos
+define('BANK_DATA_RETENTION_DAYS', 90);
+define('MAX_LOGIN_ATTEMPTS', 3);
+define('LOGIN_TIMEOUT', 300); // 5 minutos
 
 // Función para encriptar credenciales bancarias
 function encryptBankCredentials($data) {

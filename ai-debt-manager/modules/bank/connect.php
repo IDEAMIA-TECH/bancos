@@ -245,10 +245,20 @@ $_SESSION['csrf_token'] = $csrf_token;
                 if (!data.success) {
                     throw new Error(data.message || 'Error al cargar los campos');
                 }
+                
+                if (!Array.isArray(data.fields)) {
+                    throw new Error('Formato de campos inválido');
+                }
+
                 const formFields = document.getElementById('formFields');
                 formFields.innerHTML = '';
                 
                 data.fields.forEach(field => {
+                    if (!field.name || !field.label || !field.type) {
+                        console.warn('Campo inválido:', field);
+                        return;
+                    }
+
                     const div = document.createElement('div');
                     div.className = 'mb-3';
                     div.innerHTML = `
@@ -256,8 +266,8 @@ $_SESSION['csrf_token'] = $csrf_token;
                         <input type="${field.type}" 
                                class="form-control" 
                                name="${field.name}"
-                               placeholder="${field.placeholder}"
-                               required>
+                               placeholder="${field.placeholder || ''}"
+                               ${field.required ? 'required' : ''}>
                     `;
                     formFields.appendChild(div);
                 });

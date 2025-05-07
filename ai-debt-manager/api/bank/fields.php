@@ -41,6 +41,11 @@ try {
     // Obtener los campos del banco
     $bank = $SUPPORTED_BANKS[$bankId];
 
+    // Verificar que el banco tiene campos definidos
+    if (!isset($bank['fields']) || !is_array($bank['fields'])) {
+        throw new Exception('Configuración de campos del banco inválida');
+    }
+
     // Devolver los campos
     echo json_encode([
         'success' => true,
