@@ -43,11 +43,11 @@ function getBelvoInstitutions() {
             throw new Exception('La respuesta de Belvo no es un array. Tipo recibido: ' . gettype($response));
         }
         
-        if (empty($response)) {
-            throw new Exception('La respuesta de Belvo está vacía');
+        if (empty($response['results'])) {
+            throw new Exception('La respuesta de Belvo está vacía o no contiene instituciones');
         }
         
-        return $response;
+        return $response['results'];
     } catch (Exception $e) {
         error_log('Error al obtener instituciones de Belvo: ' . $e->getMessage());
         error_log('Stack trace: ' . $e->getTraceAsString());
@@ -222,17 +222,20 @@ $_SESSION['debug'] = true;
                 <?php else: ?>
                     <div class="row">
                         <?php foreach ($institutions as $institution): ?>
-                            <?php if (isset($institution['id']) && isset($institution['name']) && isset($institution['logo_url'])): ?>
+                            <?php if (isset($institution['id']) && isset($institution['display_name']) && isset($institution['logo'])): ?>
                                 <div class="col-md-4 col-lg-3 mb-3">
                                     <div class="card h-100 institution-card" 
                                          onclick="connectBank('<?php echo htmlspecialchars($institution['id']); ?>')"
                                          style="cursor: pointer;">
                                         <div class="card-body text-center">
-                                            <img src="<?php echo htmlspecialchars($institution['logo_url']); ?>" 
-                                                 alt="<?php echo htmlspecialchars($institution['name']); ?>"
+                                            <img src="<?php echo htmlspecialchars($institution['logo']); ?>" 
+                                                 alt="<?php echo htmlspecialchars($institution['display_name']); ?>"
                                                  class="img-fluid mb-3"
                                                  style="max-height: 50px;">
-                                            <h5 class="card-title"><?php echo htmlspecialchars($institution['name']); ?></h5>
+                                            <h5 class="card-title"><?php echo htmlspecialchars($institution['display_name']); ?></h5>
+                                            <?php if (isset($institution['type'])): ?>
+                                                <span class="badge bg-info"><?php echo htmlspecialchars($institution['type']); ?></span>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>
