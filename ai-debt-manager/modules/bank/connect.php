@@ -2,40 +2,72 @@
 require_once __DIR__ . '/../../includes/auth_functions.php';
 requireLogin();
 
+// Habilitar visualización de errores
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Función para mostrar errores en la página
+function displayError($message, $type = 'danger') {
+    return "<div class='alert alert-{$type} mb-3'>
+                <i class='fas fa-exclamation-circle'></i> 
+                {$message}
+            </div>";
+}
+
 // Obtener instituciones disponibles de Belvo
 function getBelvoInstitutions() {
+    global $pdo;
+    $errors = [];
+    
     try {
+        // Verificar si la función belvoApiRequest existe
+        if (!function_exists('belvoApiRequest')) {
+            throw new Exception('La función belvoApiRequest no está definida. Verifique que el archivo belvo.php está incluido correctamente.');
+        }
+
+        // Verificar credenciales de Belvo
+        if (!defined('BELVO_SECRET_ID') || !defined('BELVO_SECRET_PASSWORD')) {
+            throw new Exception('Las credenciales de Belvo no están configuradas. Verifique el archivo config.php');
+        }
+
         error_log('Iniciando solicitud a Belvo API...');
         $response = belvoApiRequest('/api/institutions/');
         error_log('Respuesta de Belvo API: ' . print_r($response, true));
         
         if (!is_array($response)) {
-            error_log('Error en respuesta de Belvo: La respuesta no es un array. Tipo: ' . gettype($response));
-            return [];
+            throw new Exception('La respuesta de Belvo no es un array. Tipo recibido: ' . gettype($response));
         }
         
         if (empty($response)) {
-            error_log('Advertencia: La respuesta de Belvo está vacía');
+            throw new Exception('La respuesta de Belvo está vacía');
         }
         
         return $response;
     } catch (Exception $e) {
         error_log('Error al obtener instituciones de Belvo: ' . $e->getMessage());
         error_log('Stack trace: ' . $e->getTraceAsString());
+        $errors[] = $e->getMessage();
         return [];
     }
 }
 
 // Verificar conexiones existentes
-$stmt = $pdo->prepare("
-    SELECT bc.*, COUNT(a.id) as account_count 
-    FROM bank_connections bc 
-    LEFT JOIN accounts a ON bc.id = a.bank_connection_id 
-    WHERE bc.user_id = ? 
-    GROUP BY bc.id
-");
-$stmt->execute([$_SESSION['user_id']]);
-$existingConnections = $stmt->fetchAll();
+try {
+    $stmt = $pdo->prepare("
+        SELECT bc.*, COUNT(a.id) as account_count 
+        FROM bank_connections bc 
+        LEFT JOIN accounts a ON bc.id = a.bank_connection_id 
+        WHERE bc.user_id = ? 
+        GROUP BY bc.id
+    ");
+    $stmt->execute([$_SESSION['user_id']]);
+    $existingConnections = $stmt->fetchAll();
+} catch (PDOException $e) {
+    error_log('Error al obtener conexiones: ' . $e->getMessage());
+    $existingConnections = [];
+    $errors[] = 'Error al obtener las conexiones bancarias: ' . $e->getMessage();
+}
 
 // Obtener instituciones disponibles
 $institutions = getBelvoInstitutions();
@@ -76,6 +108,15 @@ error_log('Instituciones obtenidas: ' . print_r($institutions, true));
         .btn-sm {
             padding: 0.25rem 0.5rem;
         }
+        .debug-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100 bg-light">
@@ -84,6 +125,26 @@ error_log('Instituciones obtenidas: ' . print_r($institutions, true));
     <main class="flex-grow-1">
         <div class="container py-4">
             <h1 class="mb-4">Conexión Bancaria</h1>
+            
+            <?php if (!empty($errors)): ?>
+                <div class="mb-4">
+                    <?php foreach ($errors as $error): ?>
+                        <?php echo displayError($error); ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['debug']) && $_SESSION['debug']): ?>
+                <div class="debug-info mb-4">
+                    <h5>Información de Depuración:</h5>
+                    <ul>
+                        <li>Último error PHP: <?php echo error_get_last()['message'] ?? 'Ninguno'; ?></li>
+                        <li>Función belvoApiRequest existe: <?php echo function_exists('belvoApiRequest') ? 'Sí' : 'No'; ?></li>
+                        <li>Credenciales Belvo configuradas: <?php echo (defined('BELVO_SECRET_ID') && defined('BELVO_SECRET_PASSWORD')) ? 'Sí' : 'No'; ?></li>
+                        <li>Número de instituciones obtenidas: <?php echo count($institutions); ?></li>
+                    </ul>
+                </div>
+            <?php endif; ?>
             
             <?php if (empty($existingConnections)): ?>
                 <div class="alert alert-info">
