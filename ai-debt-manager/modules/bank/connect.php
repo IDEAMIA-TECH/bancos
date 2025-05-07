@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/auth_functions.php';
-require_once __DIR__ . '/../../config/belvo.php';
-require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../config/banks.php';
 requireLogin();
 
 // Habilitar visualización de errores
@@ -15,45 +14,6 @@ function displayError($message, $type = 'danger') {
                 <i class='fas fa-exclamation-circle'></i> 
                 {$message}
             </div>";
-}
-
-// Obtener instituciones disponibles de Belvo
-function getBelvoInstitutions() {
-    global $pdo;
-    $errors = [];
-    
-    try {
-        // Verificar si la función belvoApiRequest existe
-        if (!function_exists('belvoApiRequest')) {
-            throw new Exception('La función belvoApiRequest no está definida. Verifique que el archivo belvo.php está incluido correctamente.');
-        }
-
-        // Verificar credenciales de Belvo
-        if (!defined('BELVO_API_KEY') || !defined('BELVO_API_SECRET')) {
-            throw new Exception('Las credenciales de Belvo no están configuradas. Verifique el archivo config/belvo.php');
-        }
-
-        error_log('Iniciando solicitud a Belvo API...');
-        error_log('Credenciales Belvo - Key: ' . substr(BELVO_API_KEY, 0, 5) . '...');
-        
-        $response = belvoApiRequest('/api/institutions/');
-        error_log('Respuesta de Belvo API: ' . print_r($response, true));
-        
-        if (!is_array($response)) {
-            throw new Exception('La respuesta de Belvo no es un array. Tipo recibido: ' . gettype($response));
-        }
-        
-        if (empty($response['results'])) {
-            throw new Exception('La respuesta de Belvo está vacía o no contiene instituciones');
-        }
-        
-        return $response['results'];
-    } catch (Exception $e) {
-        error_log('Error al obtener instituciones de Belvo: ' . $e->getMessage());
-        error_log('Stack trace: ' . $e->getTraceAsString());
-        $errors[] = $e->getMessage();
-        return [];
-    }
 }
 
 // Verificar conexiones existentes
@@ -72,13 +32,6 @@ try {
     $existingConnections = [];
     $errors[] = 'Error al obtener las conexiones bancarias: ' . $e->getMessage();
 }
-
-// Obtener instituciones disponibles
-$institutions = getBelvoInstitutions();
-error_log('Instituciones obtenidas: ' . print_r($institutions, true));
-
-// Activar modo debug para esta sesión
-$_SESSION['debug'] = true;
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -93,13 +46,11 @@ $_SESSION['debug'] = true;
           integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" 
           crossorigin="anonymous" 
           referrerpolicy="no-referrer" />
-    <!-- Belvo Widget -->
-    <script src="https://cdn.belvo.io/belvo-widget-1-stable.js"></script>
     <style>
-        .institution-card {
+        .bank-card {
             transition: transform 0.2s;
         }
-        .institution-card:hover {
+        .bank-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
@@ -114,15 +65,6 @@ $_SESSION['debug'] = true;
         }
         .btn-sm {
             padding: 0.25rem 0.5rem;
-        }
-        .debug-info {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 0.25rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            font-family: monospace;
-            font-size: 0.875rem;
         }
     </style>
 </head>
@@ -141,27 +83,16 @@ $_SESSION['debug'] = true;
                 </div>
             <?php endif; ?>
 
-            <?php if (isset($_SESSION['debug']) && $_SESSION['debug']): ?>
-                <div class="debug-info mb-4">
-                    <h5>Información de Depuración:</h5>
-                    <ul>
-                        <li>Último error PHP: <?php echo error_get_last()['message'] ?? 'Ninguno'; ?></li>
-                        <li>Función belvoApiRequest existe: <?php echo function_exists('belvoApiRequest') ? 'Sí' : 'No'; ?></li>
-                        <li>Credenciales Belvo configuradas: <?php echo (defined('BELVO_API_KEY') && defined('BELVO_API_SECRET')) ? 'Sí' : 'No'; ?></li>
-                        <li>Número de instituciones obtenidas: <?php echo count($institutions); ?></li>
-                        <li>Contenido de la respuesta de Belvo:
-                            <pre><?php echo htmlspecialchars(print_r($institutions, true)); ?></pre>
-                        </li>
-                        <li>Archivos incluidos:
-                            <ul>
-                                <?php foreach (get_included_files() as $file): ?>
-                                    <li><?php echo $file; ?></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
-            <?php endif; ?>
+            <div class="alert alert-info mb-4">
+                <h4 class="alert-heading"><i class="fas fa-info-circle"></i> Importante</h4>
+                <p>Para conectar tu cuenta bancaria, necesitaremos tus credenciales de acceso. Estas credenciales:</p>
+                <ul>
+                    <li>Se almacenan de forma segura y encriptada</li>
+                    <li>Solo se utilizan para leer tus movimientos y saldos</li>
+                    <li>No permiten realizar transferencias ni modificar tu cuenta</li>
+                    <li>Se eliminan automáticamente después de <?php echo BANK_DATA_RETENTION_DAYS; ?> días de inactividad</li>
+                </ul>
+            </div>
             
             <?php if (empty($existingConnections)): ?>
                 <div class="alert alert-info">
@@ -177,7 +108,7 @@ $_SESSION['debug'] = true;
                                     <div class="card-body">
                                         <h5 class="card-title">
                                             <i class="fas fa-university"></i> 
-                                            <?php echo htmlspecialchars($connection['institution_id']); ?>
+                                            <?php echo htmlspecialchars($connection['bank_name']); ?>
                                         </h5>
                                         <p class="card-text">
                                             <i class="fas fa-credit-card"></i> 
@@ -208,83 +139,123 @@ $_SESSION['debug'] = true;
 
             <div class="mt-4">
                 <h2>Conectar Nueva Cuenta</h2>
-                <?php if (empty($institutions)): ?>
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i> 
-                        No se pudieron cargar las instituciones bancarias. Por favor, intente más tarde.
-                        <?php if (isset($_SESSION['debug']) && $_SESSION['debug']): ?>
-                            <br>
-                            <small class="text-muted">
-                                Error: <?php echo error_get_last()['message'] ?? 'No hay error específico'; ?>
-                            </small>
-                        <?php endif; ?>
-                    </div>
-                <?php else: ?>
-                    <div class="row">
-                        <?php foreach ($institutions as $institution): ?>
-                            <?php if (isset($institution['id']) && isset($institution['display_name']) && isset($institution['logo'])): ?>
-                                <div class="col-md-4 col-lg-3 mb-3">
-                                    <div class="card h-100 institution-card" 
-                                         onclick="connectBank('<?php echo htmlspecialchars($institution['id']); ?>')"
-                                         style="cursor: pointer;">
-                                        <div class="card-body text-center">
-                                            <img src="<?php echo htmlspecialchars($institution['logo']); ?>" 
-                                                 alt="<?php echo htmlspecialchars($institution['display_name']); ?>"
-                                                 class="img-fluid mb-3"
-                                                 style="max-height: 50px;">
-                                            <h5 class="card-title"><?php echo htmlspecialchars($institution['display_name']); ?></h5>
-                                            <?php if (isset($institution['type'])): ?>
-                                                <span class="badge bg-info"><?php echo htmlspecialchars($institution['type']); ?></span>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
+                <div class="row">
+                    <?php foreach ($SUPPORTED_BANKS as $bankId => $bank): ?>
+                        <div class="col-md-4 col-lg-3 mb-3">
+                            <div class="card h-100 bank-card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title"><?php echo htmlspecialchars($bank['name']); ?></h5>
+                                    <button type="button" 
+                                            class="btn btn-primary mt-3"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#connectModal"
+                                            data-bank-id="<?php echo $bankId; ?>"
+                                            data-bank-name="<?php echo htmlspecialchars($bank['name']); ?>">
+                                        <i class="fas fa-link"></i> Conectar
+                                    </button>
                                 </div>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </div>
     </main>
+
+    <!-- Modal de Conexión -->
+    <div class="modal fade" id="connectModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Conectar Cuenta Bancaria</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="connectForm">
+                        <input type="hidden" id="bankId" name="bank_id">
+                        <div id="formFields"></div>
+                        <div class="form-check mt-3">
+                            <input class="form-check-input" type="checkbox" id="termsCheck" required>
+                            <label class="form-check-label" for="termsCheck">
+                                Acepto que mis credenciales se almacenarán de forma segura y solo se utilizarán para leer mis movimientos y saldos.
+                            </label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="connectBank()">Conectar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <?php include __DIR__ . '/../../includes/footer.php'; ?>
 
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function connectBank(institutionId) {
-            belvoSDK.createWidget({
-                institution: institutionId,
-                callback: function(link) {
-                    // Guardar la conexión en la base de datos
-                    fetch('<?php echo APP_URL; ?>/api/belvo/connect.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            institution_id: institutionId,
-                            belvo_link_id: link
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            window.location.reload();
-                        } else {
-                            alert('Error al conectar la cuenta: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Error al conectar la cuenta. Por favor, intente más tarde.');
+        // Cargar campos del formulario cuando se abre el modal
+        document.getElementById('connectModal').addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const bankId = button.getAttribute('data-bank-id');
+            const bankName = button.getAttribute('data-bank-name');
+            
+            document.getElementById('bankId').value = bankId;
+            document.querySelector('.modal-title').textContent = `Conectar ${bankName}`;
+            
+            // Cargar campos del formulario
+            fetch(`<?php echo APP_URL; ?>/api/bank/fields.php?bank_id=${bankId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const formFields = document.getElementById('formFields');
+                    formFields.innerHTML = '';
+                    
+                    data.fields.forEach(field => {
+                        const div = document.createElement('div');
+                        div.className = 'mb-3';
+                        div.innerHTML = `
+                            <label class="form-label">${field.label}</label>
+                            <input type="${field.type}" 
+                                   class="form-control" 
+                                   name="${field.name}"
+                                   placeholder="${field.placeholder}"
+                                   required>
+                        `;
+                        formFields.appendChild(div);
                     });
+                });
+        });
+
+        function connectBank() {
+            if (!document.getElementById('termsCheck').checked) {
+                alert('Debes aceptar los términos para continuar');
+                return;
+            }
+
+            const form = document.getElementById('connectForm');
+            const formData = new FormData(form);
+            
+            fetch('<?php echo APP_URL; ?>/api/bank/connect.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error al conectar la cuenta: ' + data.message);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al conectar la cuenta. Por favor, intente más tarde.');
             });
         }
 
         function syncConnection(connectionId) {
-            fetch('<?php echo APP_URL; ?>/api/belvo/sync.php', {
+            fetch('<?php echo APP_URL; ?>/api/bank/sync.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -309,7 +280,7 @@ $_SESSION['debug'] = true;
 
         function deleteConnection(connectionId) {
             if (confirm('¿Estás seguro de que deseas eliminar esta conexión?')) {
-                fetch('<?php echo APP_URL; ?>/api/belvo/delete.php', {
+                fetch('<?php echo APP_URL; ?>/api/bank/delete.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

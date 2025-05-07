@@ -13,52 +13,62 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Bank Connections table
-CREATE TABLE bank_connections (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS bank_connections (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
-    institution_id VARCHAR(50) NOT NULL,
-    belvo_link_id VARCHAR(100) NOT NULL,
-    status ENUM('active', 'inactive', 'revoked') DEFAULT 'active',
-    last_sync DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+    bank_id VARCHAR(50) NOT NULL,
+    bank_name VARCHAR(100) NOT NULL,
+    credentials TEXT NOT NULL,
+    last_sync DATETIME NULL,
+    last_error TEXT NULL,
+    last_error_at DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    deleted_at DATETIME NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    INDEX idx_user_bank (user_id, bank_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Accounts table
-CREATE TABLE accounts (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS accounts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     bank_connection_id INT NOT NULL,
     account_number VARCHAR(50) NOT NULL,
-    account_type VARCHAR(50),
-    balance DECIMAL(15,2) DEFAULT 0.00,
-    currency VARCHAR(3) DEFAULT 'MXN',
-    last_updated DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (bank_connection_id) REFERENCES bank_connections(id) ON DELETE CASCADE
-);
+    account_type VARCHAR(50) NOT NULL,
+    balance DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'MXN',
+    last_sync DATETIME NULL,
+    created_at DATETIME NOT NULL,
+    deleted_at DATETIME NULL,
+    FOREIGN KEY (bank_connection_id) REFERENCES bank_connections(id),
+    UNIQUE KEY uk_connection_account (bank_connection_id, account_number)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Transactions table
-CREATE TABLE transactions (
-    id INT PRIMARY KEY AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     account_id INT NOT NULL,
+    date DATE NOT NULL,
+    description VARCHAR(255) NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
-    description TEXT,
-    category_id VARCHAR(50),
-    transaction_date DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
-);
+    category_id INT NULL,
+    created_at DATETIME NOT NULL,
+    FOREIGN KEY (account_id) REFERENCES accounts(id),
+    FOREIGN KEY (category_id) REFERENCES categories(id),
+    INDEX idx_account_date (account_id, date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Categories table
-CREATE TABLE categories (
-    id VARCHAR(50) PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
     name VARCHAR(100) NOT NULL,
     type ENUM('income', 'expense') NOT NULL,
-    icon VARCHAR(50),
-    color VARCHAR(7),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+    color VARCHAR(7) NOT NULL DEFAULT '#000000',
+    created_at DATETIME NOT NULL,
+    deleted_at DATETIME NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE KEY uk_user_category (user_id, name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Debts table
 CREATE TABLE IF NOT EXISTS debts (
