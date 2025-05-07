@@ -5,9 +5,9 @@ requireLogin();
 // Get user's financial summary
 $stmt = $pdo->prepare("
     SELECT 
-        (SELECT SUM(amount) FROM debts WHERE user_id = ? AND status = 'active') as total_debt,
-        (SELECT COUNT(*) FROM debts WHERE user_id = ? AND status = 'active') as active_debts,
-        (SELECT SUM(amount) FROM payments p 
+        (SELECT SUM(d.amount) FROM debts d WHERE d.user_id = ? AND d.status = 'active') as total_debt,
+        (SELECT COUNT(*) FROM debts d WHERE d.user_id = ? AND d.status = 'active') as active_debts,
+        (SELECT SUM(p.amount) FROM payments p 
          JOIN debts d ON p.debt_id = d.id 
          WHERE d.user_id = ? 
          AND p.payment_date >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)) as monthly_payments
@@ -29,10 +29,10 @@ $recent_payments = $stmt->fetchAll();
 
 // Get debt distribution
 $stmt = $pdo->prepare("
-    SELECT name, amount, interest_rate
-    FROM debts
-    WHERE user_id = ? AND status = 'active'
-    ORDER BY amount DESC
+    SELECT d.name, d.amount, d.interest_rate
+    FROM debts d
+    WHERE d.user_id = ? AND d.status = 'active'
+    ORDER BY d.amount DESC
 ");
 $stmt->execute([$_SESSION['user_id']]);
 $debt_distribution = $stmt->fetchAll();
