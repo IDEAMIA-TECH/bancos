@@ -2,7 +2,7 @@
 // General Configuration
 define('APP_NAME', 'AI Debt Manager');
 define('APP_VERSION', '1.0.0');
-define('APP_URL', 'https://ideamia.com.mx/deudas'); // URL de producción
+define('APP_URL', 'https://ideamia-dev.com/deudas'); // URL de producción
 define('APP_ROOT', dirname(__DIR__));
 
 // Session Configuration
