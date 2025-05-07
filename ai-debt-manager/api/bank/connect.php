@@ -1,94 +1,102 @@
 <?php
+// Prevent any output before headers
+ob_start();
+
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../config/banks.php';
 require_once __DIR__ . '/../../includes/auth_functions.php';
 
-// Verificar autenticación
-requireLogin();
-
-// Verificar que se recibieron los datos necesarios
-if (!isset($_POST['bank_id']) || !isset($SUPPORTED_BANKS[$_POST['bank_id']])) {
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Banco no válido'
-    ]);
-    exit;
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-$bankId = $_POST['bank_id'];
-$bank = $SUPPORTED_BANKS[$bankId];
-
-// Verificar que se recibieron todos los campos requeridos
-$missingFields = [];
-foreach ($bank['fields'] as $field) {
-    if (!isset($_POST[$field['name']]) || empty($_POST[$field['name']])) {
-        $missingFields[] = $field['label'];
-    }
-}
-
-if (!empty($missingFields)) {
-    http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Faltan campos requeridos: ' . implode(', ', $missingFields)
-    ]);
-    exit;
-}
+// Set JSON response headers
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: ' . APP_URL);
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With, X-CSRF-Token');
+header('Access-Control-Allow-Credentials: true');
 
 try {
-    // Preparar las credenciales para almacenamiento
-    $credentials = [];
-    foreach ($bank['fields'] as $field) {
-        $credentials[$field['name']] = $_POST[$field['name']];
+    // Check if user is logged in
+    if (!isLoggedIn()) {
+        throw new Exception('Sesión expirada. Por favor, inicie sesión nuevamente.');
     }
 
-    // Encriptar las credenciales
-    $encryptedCredentials = encryptBankCredentials($credentials);
+    // Verify CSRF token
+    $csrf_token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (empty($csrf_token) || !isset($_SESSION['csrf_token']) || $csrf_token !== $_SESSION['csrf_token']) {
+        throw new Exception('Token de seguridad inválido');
+    }
 
-    // Guardar la conexión en la base de datos
+    // Verify request method
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        throw new Exception('Método no permitido');
+    }
+
+    // Get bank ID and verify it exists
+    $bank_id = $_POST['bank_id'] ?? '';
+    if (empty($bank_id) || !isset($SUPPORTED_BANKS[$bank_id])) {
+        throw new Exception('Banco no soportado');
+    }
+
+    // Get bank configuration
+    $bank = $SUPPORTED_BANKS[$bank_id];
+
+    // Verify required fields
+    foreach ($bank['fields'] as $field) {
+        if ($field['required'] && empty($_POST[$field['name']])) {
+            throw new Exception("El campo {$field['label']} es requerido");
+        }
+    }
+
+    // Prepare credentials
+    $credentials = [];
+    foreach ($bank['fields'] as $field) {
+        $credentials[$field['name']] = $_POST[$field['name']] ?? '';
+    }
+
+    // Encrypt credentials
+    $encrypted_credentials = encryptBankCredentials($credentials);
+
+    // Store bank connection
     $stmt = $pdo->prepare("
         INSERT INTO bank_connections (
             user_id, 
-            bank_id, 
-            bank_name, 
+            institution_id, 
             credentials, 
-            created_at, 
-            last_sync
-        ) VALUES (?, ?, ?, ?, NOW(), NULL)
+            status, 
+            created_at
+        ) VALUES (?, ?, ?, 'active', NOW())
     ");
 
     $stmt->execute([
         $_SESSION['user_id'],
-        $bankId,
-        $bank['name'],
-        $encryptedCredentials
+        $bank_id,
+        $encrypted_credentials
     ]);
 
-    $connectionId = $pdo->lastInsertId();
+    $connection_id = $pdo->lastInsertId();
 
-    // Iniciar el proceso de scraping en segundo plano
-    $scraperScript = __DIR__ . '/../../scripts/scrapers/' . $bankId . '.php';
-    if (file_exists($scraperScript)) {
-        // Ejecutar el scraper en segundo plano
-        $command = sprintf(
-            'php %s %d > /dev/null 2>&1 &',
-            escapeshellarg($scraperScript),
-            $connectionId
-        );
-        exec($command);
-    }
+    // Log successful connection
+    error_log("Nueva conexión bancaria creada: ID={$connection_id}, Usuario={$_SESSION['user_id']}, Banco={$bank_id}");
 
+    // Return success response
     echo json_encode([
         'success' => true,
-        'message' => 'Conexión iniciada correctamente'
+        'message' => 'Conexión bancaria establecida correctamente',
+        'connection_id' => $connection_id
     ]);
 
 } catch (Exception $e) {
-    error_log('Error al conectar cuenta bancaria: ' . $e->getMessage());
-    http_response_code(500);
+    error_log('Error en connect.php: ' . $e->getMessage());
+    http_response_code($e->getMessage() === 'Sesión expirada. Por favor, inicie sesión nuevamente.' ? 401 : 400);
     echo json_encode([
         'success' => false,
-        'message' => 'Error al conectar la cuenta bancaria'
+        'message' => $e->getMessage()
     ]);
-} 
+}
+
+// Ensure all output is sent
+ob_end_flush(); 
