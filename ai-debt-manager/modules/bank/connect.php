@@ -149,6 +149,9 @@ $_SESSION['debug'] = true;
                         <li>Función belvoApiRequest existe: <?php echo function_exists('belvoApiRequest') ? 'Sí' : 'No'; ?></li>
                         <li>Credenciales Belvo configuradas: <?php echo (defined('BELVO_API_KEY') && defined('BELVO_API_SECRET')) ? 'Sí' : 'No'; ?></li>
                         <li>Número de instituciones obtenidas: <?php echo count($institutions); ?></li>
+                        <li>Contenido de la respuesta de Belvo:
+                            <pre><?php echo htmlspecialchars(print_r($institutions, true)); ?></pre>
+                        </li>
                         <li>Archivos incluidos:
                             <ul>
                                 <?php foreach (get_included_files() as $file): ?>
