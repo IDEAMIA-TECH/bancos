@@ -1,6 +1,9 @@
 <?php
-session_start();
+// Load configuration first
 require_once 'config/config.php';
+
+// Start session after configuration
+session_start();
 
 // Basic routing
 $request = $_SERVER['REQUEST_URI'];
