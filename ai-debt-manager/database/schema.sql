@@ -42,32 +42,51 @@ CREATE TABLE IF NOT EXISTS accounts (
     UNIQUE KEY uk_connection_account (bank_connection_id, account_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Transactions table
+-- Bank Statements table
+CREATE TABLE IF NOT EXISTS bank_statements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    bank_name VARCHAR(100) NOT NULL,
+    account_number VARCHAR(50) NOT NULL,
+    statement_date DATE NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    status ENUM('pending', 'processed', 'error') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    processed_at TIMESTAMP NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_bank (user_id, bank_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Transactions table (modificado para incluir fuente)
 CREATE TABLE IF NOT EXISTS transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    account_id INT NOT NULL,
+    user_id INT NOT NULL,
+    bank_statement_id INT NOT NULL,
     date DATE NOT NULL,
     description VARCHAR(255) NOT NULL,
     amount DECIMAL(15,2) NOT NULL,
     category_id INT NULL,
-    created_at DATETIME NOT NULL,
-    FOREIGN KEY (account_id) REFERENCES accounts(id),
+    is_income BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (bank_statement_id) REFERENCES bank_statements(id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id),
-    INDEX idx_account_date (account_id, date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    INDEX idx_user_date (user_id, date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Categories table
+-- Categories table (modificado para incluir patrones de reconocimiento)
 CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     name VARCHAR(100) NOT NULL,
     type ENUM('income', 'expense') NOT NULL,
     color VARCHAR(7) NOT NULL DEFAULT '#000000',
-    created_at DATETIME NOT NULL,
-    deleted_at DATETIME NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id),
+    patterns JSON NULL COMMENT 'Patrones de texto para reconocimiento automático',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE KEY uk_user_category (user_id, name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Debts table
 CREATE TABLE IF NOT EXISTS debts (
@@ -149,20 +168,17 @@ CREATE TABLE system_settings (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Insert default categories
-INSERT INTO categories (id, name, type, icon, color) VALUES
-('food', 'Alimentación', 'expense', 'utensils', '#FF5733'),
-('rent', 'Renta', 'expense', 'home', '#33FF57'),
-('utilities', 'Servicios', 'expense', 'bolt', '#3357FF'),
-('transportation', 'Transporte', 'expense', 'car', '#F3FF33'),
-('entertainment', 'Entretenimiento', 'expense', 'film', '#FF33F3'),
-('shopping', 'Compras', 'expense', 'shopping-cart', '#33FFF3'),
-('health', 'Salud', 'expense', 'heartbeat', '#FF3333'),
-('education', 'Educación', 'expense', 'graduation-cap', '#3333FF'),
-('personal_care', 'Cuidado Personal', 'expense', 'cut', '#FF9933'),
-('salary', 'Salario', 'income', 'money-bill', '#33FF99'),
-('investment', 'Inversiones', 'income', 'chart-line', '#9933FF'),
-('other_income', 'Otros Ingresos', 'income', 'plus-circle', '#FF3399');
+-- Insertar categorías por defecto con patrones de reconocimiento
+INSERT INTO categories (name, type, color, patterns) VALUES
+('Alimentación', 'expense', '#FF5733', '["SUPER", "WALMART", "SORIANA", "COMERCIAL", "RESTAURANT", "CAFE"]'),
+('Transporte', 'expense', '#33FF57', '["UBER", "DIDI", "TAXI", "GASOLINA", "PEMEX", "METRO"]'),
+('Servicios', 'expense', '#3357FF', '["CFE", "TELMEX", "INTERNET", "AGUA", "GAS"]'),
+('Entretenimiento', 'expense', '#F3FF33', '["NETFLIX", "SPOTIFY", "CINE", "TEATRO", "CONCIERTO"]'),
+('Salud', 'expense', '#FF33F3', '["FARMACIA", "DOCTOR", "HOSPITAL", "MEDICINA"]'),
+('Educación', 'expense', '#33FFF3', '["ESCUELA", "UNIVERSIDAD", "CURSO", "LIBROS"]'),
+('Salario', 'income', '#33FF99', '["NOMINA", "SALARIO", "QUINCENA"]'),
+('Inversiones', 'income', '#9933FF', '["DIVIDENDOS", "INTERESES", "RENDIMIENTO"]'),
+('Otros Ingresos', 'income', '#FF3399', '["TRANSFERENCIA", "DEPOSITO"]');
 
 -- Insert default system settings
 INSERT INTO system_settings (setting_key, setting_value, setting_type, description) VALUES

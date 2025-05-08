@@ -33,10 +33,21 @@ $routes = [
     'dashboard' => 'modules/dashboard/index.php',
     'logout' => 'modules/auth/logout.php',
     'profile' => 'modules/profile/index.php',
-    'bank' => 'modules/bank/connect.php',
+    'bank/connect' => 'modules/bank/connect.php',
     'liquidity' => 'modules/liquidity/index.php',
     'debts' => 'modules/debts/index.php',
-    'settings' => 'modules/settings/index.php'
+    'debts/list' => 'modules/debts/list.php',
+    'debts/consolidate' => 'modules/debts/consolidate.php',
+    'debts/strategy' => 'modules/debts/strategy.php',
+    'debts/plan' => 'modules/debts/plan.php',
+    'transactions/categorize' => 'modules/transactions/categorize.php',
+    'analysis' => 'modules/analysis/index.php',
+    'settings' => 'modules/settings/index.php',
+    'admin' => 'modules/admin/index.php',
+    'admin/users' => 'modules/admin/users.php',
+    'admin/connections' => 'modules/admin/connections.php',
+    'admin/alerts' => 'modules/admin/alerts.php',
+    'admin/settings' => 'modules/admin/settings.php'
 ];
 
 // Verificar si la ruta existe

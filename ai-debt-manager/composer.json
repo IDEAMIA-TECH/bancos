@@ -1,9 +1,10 @@
 {
-    "name": "ai-debt-manager/app",
-    "description": "Sistema inteligente de gestión de deudas",
+    "name": "ideamia/ai-debt-manager",
+    "description": "Sistema de gestión de deudas con IA",
     "type": "project",
     "require": {
         "php": ">=7.4",
+        "smalot/pdfparser": "^2.0",
         "ext-curl": "*",
         "ext-json": "*",
         "ext-pdo": "*",
